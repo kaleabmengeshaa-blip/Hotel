@@ -1,3 +1,8 @@
+import AdminDashboardClient from "./AdminDashboardClient";
+
+export default function AdminPage() {
+  return <AdminDashboardClient />;
+}
 import { prisma } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import AdminDashboardClient from "./AdminDashboardClient";
