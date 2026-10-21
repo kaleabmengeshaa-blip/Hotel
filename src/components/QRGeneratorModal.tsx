@@ -18,7 +18,10 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
   if (!isOpen) return null;
 
   // Uses the real live deployed URL (e.g. your-app.vercel.app)
-  const encodedUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
+  const encodedUrl = new URL(
+    "/m/linen-lace",
+    currentOrigin || UNIVERSAL_MENU_INFO.qrUrl
+  ).toString();
   const qrImageApi = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(encodedUrl)}&color=0f172a&bgcolor=f8fafc`;
 
   const handleCopyLink = () => {
