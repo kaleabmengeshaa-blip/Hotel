@@ -1,8 +1,4 @@
-import AdminDashboardClient from "./AdminDashboardClient";
 
-export default function AdminPage() {
-  return <AdminDashboardClient />;
-}
 import { prisma } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import AdminDashboardClient from "./AdminDashboardClient";
@@ -11,7 +7,9 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  if (!(await isAdminAuthenticated())) redirect('/admin/login');
+  if (!(await isAdminAuthenticated())) {
+    redirect("/admin/login");
+  }
 
   const hotel = await prisma.hotel.findUnique({
     where: { slug: "linen-lace" },
@@ -19,7 +17,12 @@ export default async function AdminPage() {
       feedbacks: {
         orderBy: { createdAt: "desc" },
         take: 50,
-        select: { id: true, name: true, message: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          message: true,
+          createdAt: true,
+        },
       },
     },
   });
