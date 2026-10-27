@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
@@ -54,6 +54,18 @@ async function saveUploadedPhoto(photo: File | null) {
   await writeFile(uploadedFilePath, Buffer.from(await photo.arrayBuffer()));
 
   return `/uploads/${fileName}`;
+}
+
+async function getDefaultHotel() {
+  return prisma.hotel.upsert({
+    where: { slug: DEFAULT_HOTEL_SLUG },
+    update: { name: DEFAULT_HOTEL_NAME },
+    create: {
+      name: DEFAULT_HOTEL_NAME,
+      slug: DEFAULT_HOTEL_SLUG,
+      themeColor: "#d97706",
+    },
+  });
 }
 
 async function ensureCategory(hotelId: string, categoryName: string) {
@@ -145,14 +157,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const hotel = await prisma.hotel.upsert({
-      where: { slug: "linen-lace" },
-      update: {},
-      create: {
-        name: "Linen & Lace | Grand Hotel Dining",
-        slug: "linen-lace",
-      },
-    });
+    const hotel = await getDefaultHotel();
 
     const category = await ensureCategory(hotel.id, categoryName);
 
@@ -223,11 +228,7 @@ export async function PUT(request: Request) {
       }
     }
 
-    const hotel = await prisma.hotel.upsert({
-      where: { slug: "linen-lace" },
-      update: {},
-      create: { name: "Linen & Lace | Grand Hotel Dining", slug: "linen-lace" },
-    });
+    const hotel = await getDefaultHotel();
 
     const category = await ensureCategory(hotel.id, categoryName || (await prisma.category.findUnique({ where: { id: existingItem.categoryId } }))?.name || "General");
 

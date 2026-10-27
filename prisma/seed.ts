@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '../src/generated/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from '../src/lib/hotel-config';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -10,11 +11,11 @@ async function main() {
 
   // 1. Create a Hotel
   const hotel = await prisma.hotel.upsert({
-    where: { slug: 'grand-bistro' },
-    update: {},
+    where: { slug: DEFAULT_HOTEL_SLUG },
+    update: { name: DEFAULT_HOTEL_NAME },
     create: {
-      name: 'The Grand Bistro',
-      slug: 'grand-bistro',
+      name: DEFAULT_HOTEL_NAME,
+      slug: DEFAULT_HOTEL_SLUG,
       logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&q=80',
       themeColor: '#d97706', // Amber color
     },

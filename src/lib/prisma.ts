@@ -1,6 +1,8 @@
 import { PrismaClient } from '@/generated/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
 
+export { DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from '@/lib/hotel-config';
+
 const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createPrismaClient> | undefined;
 };

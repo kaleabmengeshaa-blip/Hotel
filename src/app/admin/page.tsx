@@ -1,5 +1,4 @@
-
-import { prisma } from "@/lib/prisma";
+import { prisma, DEFAULT_HOTEL_SLUG } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { redirect } from "next/navigation";
@@ -12,7 +11,7 @@ export default async function AdminPage() {
   }
 
   const hotel = await prisma.hotel.findUnique({
-    where: { slug: "linen-lace" },
+    where: { slug: DEFAULT_HOTEL_SLUG },
     select: {
       feedbacks: {
         orderBy: { createdAt: "desc" },

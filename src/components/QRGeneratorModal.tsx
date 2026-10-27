@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { QrCode, X, Download, Printer, Check, Copy, Sparkles } from "lucide-react";
 import { UNIVERSAL_MENU_INFO } from "../data/menuData";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
+import { DEFAULT_HOTEL_SLUG } from "@/lib/hotel-config";
 
 interface QRGeneratorModalProps {
   isOpen: boolean;
@@ -17,17 +18,23 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
 
   if (!isOpen) return null;
 
+  const displayHotelName = hotelName.trim() || UNIVERSAL_MENU_INFO.venueName;
+
   // Uses the real live deployed URL (e.g. your-app.vercel.app)
   const encodedUrl = new URL(
-    "/m/linen-lace",
+    `/m/${DEFAULT_HOTEL_SLUG}`,
     currentOrigin || UNIVERSAL_MENU_INFO.qrUrl
   ).toString();
   const qrImageApi = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(encodedUrl)}&color=0f172a&bgcolor=f8fafc`;
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(encodedUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(encodedUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
@@ -71,7 +78,7 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
             </div>
 
             <p className="text-2xl font-bold font-[family-name:var(--font-playfair)] text-white">
-              {hotelName}
+              {displayHotelName}
             </p>
             <p className="text-xs text-stone-400 mt-1 mb-4">
               Scan with phone camera to open live digital menu on your phone
@@ -89,7 +96,7 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
             <div className="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-stone-300">
               <span className="truncate max-w-[220px] text-amber-300 font-medium">{encodedUrl}</span>
               <button
-                onClick={handleCopyLink}
+                onClick={() => void handleCopyLink()}
                 className="ml-1 text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium shrink-0"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}

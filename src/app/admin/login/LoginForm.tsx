@@ -1,13 +1,14 @@
 'use client';
 
-import { useActionState } from 'react';
-import { KeyRound, UserRound } from 'lucide-react';
+import { useActionState, useState } from 'react';
+import { Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
 import { loginAdmin } from './actions';
 
 const initialState = { message: '' };
 
 export default function LoginForm({ authConfigured }: { authConfigured: boolean }) {
   const [state, formAction, pending] = useActionState(loginAdmin, initialState);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <>
@@ -39,9 +40,18 @@ export default function LoginForm({ authConfigured }: { authConfigured: boolean 
               required
               autoComplete="current-password"
               name="password"
-              type="password"
-              className="w-full rounded-lg border border-white/15 bg-stone-900 py-2.5 pl-10 pr-3 text-sm text-white outline-none focus:border-amber-500"
+              type={showPassword ? 'text' : 'password'}
+              className="w-full rounded-lg border border-white/15 bg-stone-900 py-2.5 pl-10 pr-10 text-sm text-white outline-none focus:border-amber-500"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 transition hover:text-stone-300"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </span>
         </label>
 
