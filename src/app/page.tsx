@@ -13,7 +13,6 @@ import RotatingPrice from "../components/RotatingPrice";
 
 import {
   Search,
-  Star,
   Clock,
   Sparkles,
   Flame,
@@ -389,9 +388,6 @@ export default function Home() {
                       <span />
                     )}
 
-                    <span className="flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-xs font-bold text-amber-300 backdrop-blur-md border border-white/10">
-                      <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" /> {item.rating}
-                    </span>
                   </div>
 
                   {/* Price Tag */}

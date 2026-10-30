@@ -574,9 +574,8 @@ const filteredItems = databaseItems.filter((item) => {
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
-                {editingItemId ? "Replace dish photo (optional)" : "Upload dish photo"}
+                Dish photo (optional)
                 <input
-                  required={!editingItemId}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(event) => setSelectedPhoto(event.target.files?.[0] ?? null)}
@@ -587,7 +586,7 @@ const filteredItems = databaseItems.filter((item) => {
                     ? `${selectedPhoto.name} selected`
                     : editingItemId
                       ? "Leave empty to keep the current photo. JPG, PNG, WebP, or GIF; maximum size: 5 MB."
-                      : "JPG, PNG, WebP, or GIF. Maximum size: 5 MB."}
+                      : "You can add a photo now or leave this blank. JPG, PNG, WebP, or GIF; maximum size: 5 MB."}
                 </span>
               </label>
               <div className="flex items-center gap-3 sm:col-span-2">
