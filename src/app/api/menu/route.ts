@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { del, put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { prisma, DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
@@ -55,12 +56,27 @@ async function saveUploadedPhoto(photo: File | null) {
     throw new Error("Choose a JPG, PNG, WebP, or GIF photo.");
   }
 
-  const uploadDirectory = join(process.cwd(), "public", "uploads");
   const fileName = `${randomUUID()}${photoExtensions[photo.type]}`;
+  const photoBytes = Buffer.from(await photo.arrayBuffer());
+
+  if (process.env.VERCEL) {
+    if (!process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) {
+      throw new Error("Photo uploads are not configured. Connect a public Vercel Blob store to this project.");
+    }
+
+    const blob = await put(`menu-items/${fileName}`, photoBytes, {
+      access: "public",
+      contentType: photo.type,
+    });
+
+    return { imageUrl: blob.url };
+  }
+
+  const uploadDirectory = join(process.cwd(), "public", "uploads");
   const uploadedFilePath = join(uploadDirectory, fileName);
   await mkdir(uploadDirectory, { recursive: true });
   try {
-    await writeFile(uploadedFilePath, Buffer.from(await photo.arrayBuffer()));
+    await writeFile(uploadedFilePath, photoBytes);
   } catch (error) {
     await rm(uploadedFilePath, { force: true }).catch((cleanupError) => {
       console.error("Failed to remove incomplete menu photo:", cleanupError);
@@ -68,22 +84,31 @@ async function saveUploadedPhoto(photo: File | null) {
     throw error;
   }
 
-  return { imageUrl: `/uploads/${fileName}`, filePath: uploadedFilePath };
+  return { imageUrl: `/uploads/${fileName}` };
 }
 
-function getUploadedPhotoPath(imageUrl: string | null) {
-  if (!imageUrl?.startsWith("/uploads/")) return null;
+async function removeUploadedPhoto(imageUrl: string | null) {
+  if (!imageUrl) return;
 
-  const fileName = imageUrl.slice("/uploads/".length);
-  if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/i.test(fileName)) return null;
+  try {
+    if (imageUrl.startsWith("/uploads/")) {
+      const fileName = imageUrl.slice("/uploads/".length);
+      if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/i.test(fileName)) return;
 
-  return join(process.cwd(), "public", "uploads", fileName);
-}
+      await rm(join(process.cwd(), "public", "uploads", fileName), { force: true });
+      return;
+    }
 
-async function removeUploadedPhoto(filePath: string) {
-  await rm(filePath, { force: true }).catch((error) => {
+    const photoUrl = new URL(imageUrl);
+    if (
+      photoUrl.protocol === "https:" &&
+      photoUrl.hostname.endsWith(".public.blob.vercel-storage.com")
+    ) {
+      await del(photoUrl.href);
+    }
+  } catch (error) {
     console.error("Failed to remove menu photo:", error);
-  });
+  }
 }
 
 async function getDefaultHotel() {
@@ -117,7 +142,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
   }
 
-  let uploadedFilePath: string | undefined;
+  let uploadedPhotoUrl: string | undefined;
 
   try {
     const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data");
@@ -205,7 +230,7 @@ export async function POST(request: Request) {
         const savedPhoto = await saveUploadedPhoto(photo);
         if (savedPhoto) {
           imageUrl = savedPhoto.imageUrl;
-          uploadedFilePath = savedPhoto.filePath;
+          uploadedPhotoUrl = savedPhoto.imageUrl;
         }
       } catch (error) {
         return NextResponse.json(
@@ -232,10 +257,10 @@ export async function POST(request: Request) {
       },
     });
 
-    uploadedFilePath = undefined;
+    uploadedPhotoUrl = undefined;
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    if (uploadedFilePath) await removeUploadedPhoto(uploadedFilePath);
+    if (uploadedPhotoUrl) await removeUploadedPhoto(uploadedPhotoUrl);
     console.error("Failed to create menu item:", error);
     return NextResponse.json(
       { error: "Could not save the menu item." },
@@ -249,7 +274,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
   }
 
-  let uploadedFilePath: string | undefined;
+  let uploadedPhotoUrl: string | undefined;
 
   try {
     const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data");
@@ -321,7 +346,7 @@ export async function PUT(request: Request) {
         const savedPhoto = await saveUploadedPhoto(photo);
         if (savedPhoto) {
           imageUrl = savedPhoto.imageUrl;
-          uploadedFilePath = savedPhoto.filePath;
+          uploadedPhotoUrl = savedPhoto.imageUrl;
         }
       } catch (error) {
         return NextResponse.json(
@@ -348,15 +373,14 @@ export async function PUT(request: Request) {
       },
     });
 
-    uploadedFilePath = undefined;
-    const previousPhotoPath = getUploadedPhotoPath(existingItem.imageUrl);
-    if (shouldReplacePhoto && previousPhotoPath) {
-      await removeUploadedPhoto(previousPhotoPath);
+    uploadedPhotoUrl = undefined;
+    if (shouldReplacePhoto) {
+      await removeUploadedPhoto(existingItem.imageUrl);
     }
 
     return NextResponse.json(item, { status: 200 });
   } catch (error) {
-    if (uploadedFilePath) await removeUploadedPhoto(uploadedFilePath);
+    if (uploadedPhotoUrl) await removeUploadedPhoto(uploadedPhotoUrl);
     console.error("Failed to update menu item:", error);
     return NextResponse.json({ error: "Could not update the menu item." }, { status: 500 });
   }
@@ -385,9 +409,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
     }
 
-    const photoPath = getUploadedPhotoPath(item.imageUrl);
     await prisma.menuItem.delete({ where: { id } });
-    if (photoPath) await removeUploadedPhoto(photoPath);
+    await removeUploadedPhoto(item.imageUrl);
 
     return NextResponse.json({ ok: true, id }, { status: 200 });
   } catch (error) {

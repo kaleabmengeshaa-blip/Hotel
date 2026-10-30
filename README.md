@@ -57,3 +57,7 @@ npm start
 ```
 
 For deployment, configure the same environment variables in the hosting provider and apply committed migrations with `npx prisma migrate deploy` before serving traffic.
+
+## Vercel Photo Storage
+
+Menu photos need persistent storage in production. In the Vercel project, create a **public Blob** store from the Storage tab and connect it to the project for Production and Preview. Vercel provides the storage credentials to the deployment; redeploy after connecting the store. Local development continues to save photos under `public/uploads`.
