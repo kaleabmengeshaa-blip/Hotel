@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import RotatingPrice from '@/components/RotatingPrice';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,9 +77,11 @@ export default async function GuestMenu({ params }: { params: Promise<{ hotelSlu
                         <h3 className="font-serif text-xl text-charcoal leading-tight">
                           {item.name}
                         </h3>
-                        <span className="font-serif text-lg text-amber font-semibold whitespace-nowrap">
-                          ETB {Number(item.price).toFixed(2)}
-                        </span>
+                        <RotatingPrice
+                          priceEtb={Number(item.price)}
+                          priceUsd={item.priceUsd === null ? null : Number(item.priceUsd)}
+                          className="whitespace-nowrap font-serif text-lg font-semibold text-amber"
+                        />
                       </div>
                       
                       <p className="text-sm text-charcoal/70 mt-2 leading-relaxed font-sans">

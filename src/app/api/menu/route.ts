@@ -125,6 +125,7 @@ export async function POST(request: Request) {
     let description: string;
     let categoryName: string;
     let price: number;
+    let priceUsd: number | null = null;
     let prepTimeMins: number;
     let imageUrl: string | null = null;
     let dietaryTags: string[] = [];
@@ -136,6 +137,8 @@ export async function POST(request: Request) {
       description = String(formData.get("description") ?? "").trim();
       categoryName = String(formData.get("category") ?? "").trim();
       price = Number(formData.get("price"));
+      const rawPriceUsd = formData.get("priceUsd");
+      priceUsd = rawPriceUsd === null || rawPriceUsd === "" ? null : Number(rawPriceUsd);
       prepTimeMins = Number(formData.get("prepTimeMins") ?? 0);
       const uploadedPhoto = formData.get("photo");
       if (uploadedPhoto instanceof File && uploadedPhoto.size > 0) photo = uploadedPhoto;
@@ -145,6 +148,9 @@ export async function POST(request: Request) {
       description = String(body.description ?? "").trim();
       categoryName = String(body.category ?? "").trim();
       price = Number(body.price);
+      priceUsd = body.priceUsd === null || body.priceUsd === undefined || body.priceUsd === ""
+        ? null
+        : Number(body.priceUsd);
       prepTimeMins = Number(body.prepTimeMins ?? 0);
       imageUrl = body.imageUrl ? String(body.imageUrl) : null;
       dietaryTags = Array.isArray(body.dietaryTags)
@@ -171,6 +177,10 @@ export async function POST(request: Request) {
         { error: "Enter a valid price." },
         { status: 400 }
       );
+    }
+
+    if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd >= 100000000)) {
+      return NextResponse.json({ error: "Enter a valid USD price." }, { status: 400 });
     }
 
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
@@ -215,6 +225,7 @@ export async function POST(request: Request) {
         name,
         description,
         price,
+        priceUsd,
         prepTimeMins,
         imageUrl,
         dietaryTags,
@@ -250,6 +261,10 @@ export async function PUT(request: Request) {
     const description = String(formData?.get("description") ?? body?.description ?? "").trim();
     const categoryName = String(formData?.get("category") ?? body?.category ?? "").trim();
     const rawPrice = formData?.get("price") ?? body?.price;
+    const hasPriceUsd = formData
+      ? formData.has("priceUsd")
+      : Object.prototype.hasOwnProperty.call(body, "priceUsd");
+    const rawPriceUsd = formData ? formData.get("priceUsd") : body?.priceUsd;
     const rawPrepTimeMins = formData?.get("prepTimeMins") ?? body?.prepTimeMins;
     const photoEntry = formData?.get("photo");
     const shouldReplacePhoto = photoEntry instanceof File && photoEntry.size > 0;
@@ -277,6 +292,15 @@ export async function PUT(request: Request) {
       : Number(rawPrepTimeMins);
     if (!Number.isFinite(price) || price < 0 || price >= 100000000) {
       return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
+    }
+    let priceUsd = existingItem.priceUsd === null ? null : Number(existingItem.priceUsd);
+    if (hasPriceUsd) {
+      priceUsd = rawPriceUsd === null || rawPriceUsd === ""
+        ? null
+        : Number(rawPriceUsd);
+      if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd >= 100000000)) {
+        return NextResponse.json({ error: "Enter a valid USD price." }, { status: 400 });
+      }
     }
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
       return NextResponse.json(
@@ -318,6 +342,7 @@ export async function PUT(request: Request) {
         name: name || existingItem.name,
         description: description || existingItem.description,
         price,
+        priceUsd,
         prepTimeMins,
         imageUrl,
       },

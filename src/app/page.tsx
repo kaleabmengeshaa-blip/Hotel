@@ -8,6 +8,7 @@ import {
 } from "../data/menuData";
 import FoodDetailModal from "../components/FoodDetailModal";
 import GuestFeedbackPopover from "../components/GuestFeedbackPopover";
+import RotatingPrice from "../components/RotatingPrice";
 
 
 import {
@@ -31,6 +32,7 @@ type ApiMenuCategory = {
     name: string;
     description: string;
     price: number | string;
+    priceUsd: number | string | null;
     imageUrl: string | null;
     prepTimeMins: number;
     isAvailable: boolean;
@@ -103,6 +105,7 @@ export default function Home() {
       description: item.description,
       longDescription: item.description,
       price: Number(item.price),
+      priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
       image: item.imageUrl || "/images/burrata_salad.png",
       rating: 0,
       reviewsCount: 0,
@@ -392,9 +395,11 @@ export default function Home() {
                   </div>
 
                   {/* Price Tag */}
-                  <div className="absolute bottom-3 right-3 rounded-2xl bg-stone-950/90 border border-amber-500/30 px-3.5 py-1 text-base font-extrabold text-amber-300 backdrop-blur-md">
-                    ETB {item.price.toFixed(2)}
-                  </div>
+                  <RotatingPrice
+                    priceEtb={item.price}
+                    priceUsd={item.priceUsd}
+                    className="absolute bottom-3 right-3 rounded-2xl border border-amber-500/30 bg-stone-950/90 px-3.5 py-1 text-base font-extrabold text-amber-300 backdrop-blur-md"
+                  />
                 </div>
 
                 {/* Content */}

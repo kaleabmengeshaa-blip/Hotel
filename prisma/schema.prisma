@@ -53,6 +53,7 @@ model MenuItem {
   name          String
   description   String     @db.Text
   price         Decimal    @db.Decimal(10, 2)
+  priceUsd      Decimal?   @db.Decimal(10, 2)
   prepTimeMins  Int        @default(0)
   imageUrl      String?
   isAvailable   Boolean    @default(true)

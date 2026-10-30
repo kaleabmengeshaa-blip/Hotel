@@ -41,6 +41,7 @@ export default async function GuestMenu({
             name: i.name,
             description: i.description,
             price: Number(i.price),
+            priceUsd: i.priceUsd === null ? null : Number(i.priceUsd),
             imageUrl: i.imageUrl,
             isAvailable: i.isAvailable,
             dietaryTags: i.dietaryTags,

@@ -3,12 +3,14 @@
 import { useMemo, useState, useTransition } from 'react';
 import { Coffee, Search } from 'lucide-react';
 import { submitFeedback } from './actions';
+import RotatingPrice from './src/components/RotatingPrice';
 
 type GuestItem = {
   id: string;
   name: string;
   description: string;
   price: number;
+  priceUsd: number | null;
   imageUrl: string | null;
   isAvailable: boolean;
   dietaryTags: string[];
@@ -37,10 +39,6 @@ function readableOn(hex: string) {
   const g = (n >> 8) & 255;
   const b = n & 255;
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#0d0f12' : '#ffffff';
-}
-
-function formatPrice(p: number) {
-  return Number.isInteger(p) ? String(p) : p.toFixed(2);
 }
 
 export default function MenuClient({ hotel }: { hotel: GuestHotel }) {
@@ -204,12 +202,12 @@ export default function MenuClient({ hotel }: { hotel: GuestHotel }) {
                             Sold out
                           </span>
                         ) : (
-                          <span
+                          <RotatingPrice
+                            priceEtb={item.price}
+                            priceUsd={item.priceUsd}
                             className="whitespace-nowrap font-semibold"
                             style={{ color: accent }}
-                          >
-                            ETB {formatPrice(item.price)}
-                          </span>
+                          />
                         )}
                       </div>
                       <p className="mt-1 text-sm leading-relaxed text-stone-400">

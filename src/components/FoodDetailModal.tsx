@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { MenuItem } from "../data/menuData";
+import RotatingPrice from "./RotatingPrice";
 import { X, Star, Clock, Flame, AlertCircle, Sparkles } from "lucide-react";
 
 interface FoodDetailModalProps {
@@ -49,9 +50,11 @@ export default function FoodDetailModal({ item, isOpen, onClose }: FoodDetailMod
                 <Flame className="h-3.5 w-3.5 text-orange-400" /> {item.calories} kcal
               </span>
             </div>
-            <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-amber-300">
-              ETB {item.price.toFixed(2)}
-            </p>
+            <RotatingPrice
+              priceEtb={item.price}
+              priceUsd={item.priceUsd}
+              className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-amber-300"
+            />
           </div>
         </div>
 

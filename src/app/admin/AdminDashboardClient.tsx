@@ -45,6 +45,7 @@ type AdminMenuItem = {
   name: string;
   description: string;
   price: number | string;
+  priceUsd: number | string | null;
   imageUrl: string | null;
   prepTimeMins: number;
   isAvailable: boolean;
@@ -79,6 +80,7 @@ export default function AdminDashboardClient({
     description: "",
     category: "",
     price: "",
+    priceUsd: "",
     prepTimeMins: "15",
   });
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -117,6 +119,7 @@ useEffect(() => {
       formData.set("description", newItem.description);
       formData.set("category", newItem.category);
       formData.set("price", newItem.price);
+      formData.set("priceUsd", newItem.priceUsd);
       formData.set("prepTimeMins", String(Number(newItem.prepTimeMins)));
       if (selectedPhoto) {
         formData.set("photo", selectedPhoto);
@@ -132,7 +135,7 @@ useEffect(() => {
         throw new Error(result.error || "Could not save the dish.");
       }
 
-      setNewItem({ name: "", description: "", category: "", price: "", prepTimeMins: "15" });
+      setNewItem({ name: "", description: "", category: "", price: "", priceUsd: "", prepTimeMins: "15" });
       setSelectedPhoto(null);
       setEditingItemId(null);
       setShowAddForm(false);
@@ -176,13 +179,14 @@ useEffect(() => {
     }
   };
 
-  const startEditingItem = (item: { id: string; name: string; description: string; category: string; price: number; prepTimeMinutes: number }) => {
+  const startEditingItem = (item: { id: string; name: string; description: string; category: string; price: number; priceUsd: number | null; prepTimeMinutes: number }) => {
     setEditingItemId(item.id);
     setNewItem({
       name: item.name,
       description: item.description,
       category: item.category,
       price: String(item.price),
+      priceUsd: item.priceUsd === null ? "" : String(item.priceUsd),
       prepTimeMins: String(item.prepTimeMinutes),
     });
     setSelectedPhoto(null);
@@ -244,6 +248,7 @@ useEffect(() => {
     category: category.name,
     description: item.description,
     price: Number(item.price),
+    priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
     image: item.imageUrl || "/images/burrata_salad.png",
     isAvailable: item.isAvailable,
     prepTimeMinutes: item.prepTimeMins,
@@ -503,7 +508,7 @@ const filteredItems = databaseItems.filter((item) => {
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300">
-                Price
+                Price (ETB)
                 <input
                   required
                   type="number"
@@ -514,6 +519,21 @@ const filteredItems = databaseItems.filter((item) => {
                   className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                   placeholder="0.00"
                 />
+              </label>
+              <label className="text-xs font-semibold text-stone-300">
+                Price (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newItem.priceUsd}
+                  onChange={(event) => setNewItem({ ...newItem, priceUsd: event.target.value })}
+                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                  placeholder="Optional"
+                />
+                <span className="mt-1 block font-normal text-stone-500">
+                  Enter the USD price separately. Leave blank to show ETB only.
+                </span>
               </label>
               <label className="text-xs font-semibold text-stone-300">
                 Category
@@ -584,7 +604,7 @@ const filteredItems = databaseItems.filter((item) => {
                     onClick={() => {
                       setEditingItemId(null);
                       setSelectedPhoto(null);
-                      setNewItem({ name: "", description: "", category: "", price: "", prepTimeMins: "15" });
+                      setNewItem({ name: "", description: "", category: "", price: "", priceUsd: "", prepTimeMins: "15" });
                       setFormMessage("");
                     }}
                     className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-stone-200"
@@ -627,7 +647,10 @@ const filteredItems = databaseItems.filter((item) => {
                         <Image src={item.image} alt={item.name} fill className="object-cover" />
                       </div>
                       <div className="text-right">
-                        <span className="text-sm font-extrabold text-amber-300">ETB {item.price.toFixed(2)}</span>
+                        <div className="text-sm font-extrabold text-amber-300">
+                          <p>ETB {item.price.toFixed(2)}</p>
+                          {item.priceUsd !== null && <p className="text-xs text-stone-300">${item.priceUsd.toFixed(2)}</p>}
+                        </div>
                         <div className="text-[10px] text-stone-400 mt-0.5">
                           {item.prepTimeMinutes} mins prep
                         </div>
