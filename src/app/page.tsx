@@ -4,8 +4,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  CATEGORIES,
-  MENU_ITEMS,
   MenuItem,
 } from "../data/menuData";
 import FoodDetailModal from "../components/FoodDetailModal";
@@ -52,7 +50,8 @@ const supportedDietaryTags = new Set<MenuItem["dietary"][number]>([
 export default function Home() {
   const [showAdminReturn, setShowAdminReturn] = useState(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
-  const [databaseMenuLoaded, setDatabaseMenuLoaded] = useState(false);
+  const [menuLoadState, setMenuLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const menuHasLoaded = React.useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -77,9 +76,13 @@ export default function Home() {
           throw new Error("The menu response has an invalid format.");
         }
         if (isMounted) setDatabaseCategories(categories);
-        if (isMounted) setDatabaseMenuLoaded(true);
+        if (isMounted) {
+          menuHasLoaded.current = true;
+          setMenuLoadState("ready");
+        }
       } catch (error) {
         console.error("Could not load the latest menu:", error);
+        if (isMounted && !menuHasLoaded.current) setMenuLoadState("error");
       }
     };
 
@@ -112,13 +115,11 @@ export default function Home() {
       allergens: [],
     }))
   );
-  const menuItems = databaseMenuLoaded ? databaseItems : MENU_ITEMS;
-  const menuCategories = databaseMenuLoaded
-    ? [
-        { id: "all", name: "All Dishes" },
-        ...databaseCategories.map((category) => ({ id: category.id, name: category.name })),
-      ]
-    : CATEGORIES;
+  const menuItems = databaseItems;
+  const menuCategories = [
+    { id: "all", name: "All Dishes" },
+    ...databaseCategories.map((category) => ({ id: category.id, name: category.name })),
+  ];
 
   // Modals state
   const [selectedFood, setSelectedFood] = useState<MenuItem | null>(null);
@@ -315,23 +316,47 @@ export default function Home() {
         </div>
 
         {/* Grid */}
-        {filteredItems.length === 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-stone-950 p-12 text-center space-y-3">
-            <Utensils className="h-12 w-12 text-stone-600 mx-auto" />
-            <h4 className="text-lg font-bold text-white">No dishes match your criteria</h4>
-            <p className="text-xs text-stone-400 max-w-sm mx-auto">
-              Try adjusting your search keywords or clearing dietary filters to view all menu selections.
+        {menuLoadState === "loading" ? (
+          <p role="status" className="rounded-3xl border border-white/10 bg-stone-950 p-12 text-center text-sm text-stone-400">
+            Loading the menu...
+          </p>
+        ) : menuLoadState === "error" ? (
+          <div role="alert" className="rounded-3xl border border-rose-500/30 bg-stone-950 p-12 text-center space-y-3">
+            <Utensils className="h-12 w-12 text-rose-300 mx-auto" />
+            <h4 className="text-lg font-bold text-white">Menu temporarily unavailable</h4>
+            <p className="text-xs text-stone-400">
+              We could not load the restaurant menu. Please try again.
             </p>
             <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedDietary([]);
-                setActiveCategory("all");
-              }}
+              onClick={() => window.location.reload()}
               className="mt-2 inline-flex rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
             >
-              Show Full Menu
+              Try again
             </button>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-stone-950 p-12 text-center space-y-3">
+            <Utensils className="h-12 w-12 text-stone-600 mx-auto" />
+            <h4 className="text-lg font-bold text-white">
+              {databaseItems.length === 0 ? "No menu items are currently available" : "No dishes match your criteria"}
+            </h4>
+            <p className="text-xs text-stone-400 max-w-sm mx-auto">
+              {databaseItems.length === 0
+                ? "Please check back later."
+                : "Try adjusting your search keywords or clearing dietary filters to view all menu selections."}
+            </p>
+            {databaseItems.length > 0 && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedDietary([]);
+                  setActiveCategory("all");
+                }}
+                className="mt-2 inline-flex rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
+              >
+                Show Full Menu
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
