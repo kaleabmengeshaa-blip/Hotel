@@ -35,7 +35,7 @@ export default function RotatingPrice({
 
     const intervalId = window.setInterval(() => {
       setShowUsd((visible) => !visible);
-    }, 3000);
+    }, 2000);
 
     return () => window.clearInterval(intervalId);
   }, [hasUsdPrice]);
