@@ -328,7 +328,7 @@ export default function AdminDashboardClient({ hotel }: { hotel: AdminHotel }) {
                         <button
                           className={btnGhost}
                           disabled={pending}
-                          onClick={() => run(() => toggleAvailability(item.id, item.isAvailable))}
+                          onClick={() => run(() => toggleAvailability(item.id))}
                         >
                           {item.isAvailable ? 'Pull out of menu' : 'Put back on menu'}
                         </button>

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { QrCode, X, Download, Printer, Check, Copy, Sparkles } from "lucide-react";
 import { UNIVERSAL_MENU_INFO } from "../data/menuData";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
-import { DEFAULT_HOTEL_SLUG } from "@/lib/hotel-config";
 
 interface QRGeneratorModalProps {
   isOpen: boolean;
@@ -21,10 +20,7 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
   const displayHotelName = hotelName.trim() || UNIVERSAL_MENU_INFO.venueName;
 
   // Uses the real live deployed URL (e.g. your-app.vercel.app)
-  const encodedUrl = new URL(
-    `/m/${DEFAULT_HOTEL_SLUG}`,
-    currentOrigin || UNIVERSAL_MENU_INFO.qrUrl
-  ).toString();
+  const encodedUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
   const qrImageApi = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(encodedUrl)}&color=0f172a&bgcolor=f8fafc`;
 
   const handleCopyLink = async () => {

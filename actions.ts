@@ -117,17 +117,24 @@ export async function updateItem(itemId: string, input: ItemInput): Promise<Resu
   }
 }
 
-export async function toggleAvailability(itemId: string, currentStatus: boolean): Promise<Result> {
+export async function toggleAvailability(itemId: string): Promise<Result> {
   const authError = await requireAdmin();
   if (authError) return authError;
 
   try {
+    const item = await prisma.menuItem.findUnique({
+      where: { id: itemId },
+      select: { isAvailable: true },
+    });
+    if (!item) return { ok: false, message: 'Could not find this dish.' };
+
+    const isAvailable = !item.isAvailable;
     await prisma.menuItem.update({
       where: { id: itemId },
-      data: { isAvailable: !currentStatus },
+      data: { isAvailable },
     });
     refresh();
-    return { ok: true, message: currentStatus ? 'Marked as sold out.' : 'Back on the menu.' };
+    return { ok: true, message: isAvailable ? 'Back on the menu.' : 'Marked as sold out.' };
   } catch {
     return { ok: false, message: 'Could not change this dish. Please try again.' };
   }

@@ -208,11 +208,11 @@ useEffect(() => {
     setAvailabilitySavingId(id);
     setFormMessage("");
     try {
-      await saveAvailability(id, item.isAvailable);
+      const isAvailable = await saveAvailability(id);
       const response = await fetch("/api/menu", { cache: "no-store" });
       if (!response.ok) throw new Error("Could not refresh the menu.");
       setDbCategories(await response.json());
-      setFormMessage(`"${item.name}" ${item.isAvailable ? "marked sold out" : "restocked"}.`);
+      setFormMessage(`"${item.name}" ${isAvailable ? "restocked" : "marked sold out"}.`);
     } catch (error) {
       setFormMessage(error instanceof Error ? error.message : "Could not update availability.");
     } finally {
@@ -223,12 +223,18 @@ useEffect(() => {
   const handleDeleteFeedback = async (feedbackId: string) => {
     setDeletingFeedbackId(feedbackId);
     setFeedbackMessage("");
-    const result = await deleteFeedback(feedbackId);
-    setFeedbackMessage(result.message);
-    if (result.ok) {
-      setFeedbackItems((items) => items.filter((item) => item.id !== feedbackId));
+    try {
+      const result = await deleteFeedback(feedbackId);
+      setFeedbackMessage(result.message);
+      if (result.ok) {
+        setFeedbackItems((items) => items.filter((item) => item.id !== feedbackId));
+      }
+    } catch (error) {
+      console.error("Could not delete guest comment:", error);
+      setFeedbackMessage("Could not delete the comment. Please try again.");
+    } finally {
+      setDeletingFeedbackId(null);
     }
-    setDeletingFeedbackId(null);
   };
 
   const databaseItems = dbCategories.flatMap((category) =>

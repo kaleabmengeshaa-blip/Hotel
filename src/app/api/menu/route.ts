@@ -10,16 +10,24 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      include: {
-        items: {
+    const isAdmin = await isAdminAuthenticated();
+    const hotel = await prisma.hotel.findUnique({
+      where: { slug: DEFAULT_HOTEL_SLUG },
+      select: {
+        categories: {
+          where: isAdmin ? undefined : { items: { some: { isAvailable: true } } },
+          include: {
+            items: {
+              where: isAdmin ? undefined : { isAvailable: true },
+              orderBy: { displayOrder: "asc" },
+            },
+          },
           orderBy: { displayOrder: "asc" },
         },
       },
-      orderBy: { displayOrder: "asc" },
     });
 
-    return NextResponse.json(categories);
+    return NextResponse.json(hotel?.categories ?? []);
   } catch (error) {
     console.error("Failed to load menu:", error);
     return NextResponse.json(
@@ -51,15 +59,37 @@ async function saveUploadedPhoto(photo: File | null) {
   const fileName = `${randomUUID()}${photoExtensions[photo.type]}`;
   const uploadedFilePath = join(uploadDirectory, fileName);
   await mkdir(uploadDirectory, { recursive: true });
-  await writeFile(uploadedFilePath, Buffer.from(await photo.arrayBuffer()));
+  try {
+    await writeFile(uploadedFilePath, Buffer.from(await photo.arrayBuffer()));
+  } catch (error) {
+    await rm(uploadedFilePath, { force: true }).catch((cleanupError) => {
+      console.error("Failed to remove incomplete menu photo:", cleanupError);
+    });
+    throw error;
+  }
 
-  return `/uploads/${fileName}`;
+  return { imageUrl: `/uploads/${fileName}`, filePath: uploadedFilePath };
+}
+
+function getUploadedPhotoPath(imageUrl: string | null) {
+  if (!imageUrl?.startsWith("/uploads/")) return null;
+
+  const fileName = imageUrl.slice("/uploads/".length);
+  if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/i.test(fileName)) return null;
+
+  return join(process.cwd(), "public", "uploads", fileName);
+}
+
+async function removeUploadedPhoto(filePath: string) {
+  await rm(filePath, { force: true }).catch((error) => {
+    console.error("Failed to remove menu photo:", error);
+  });
 }
 
 async function getDefaultHotel() {
   return prisma.hotel.upsert({
     where: { slug: DEFAULT_HOTEL_SLUG },
-    update: { name: DEFAULT_HOTEL_NAME },
+    update: {},
     create: {
       name: DEFAULT_HOTEL_NAME,
       slug: DEFAULT_HOTEL_SLUG,
@@ -129,7 +159,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!Number.isFinite(price) || price < 0) {
+    if (name.length > 120 || description.length > 2000 || categoryName.length > 80) {
+      return NextResponse.json(
+        { error: "Name, description, or category is too long." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(price) || price < 0 || price >= 100000000) {
       return NextResponse.json(
         { error: "Enter a valid price." },
         { status: 400 }
@@ -143,11 +180,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      dietaryTags.length > 20 ||
+      dietaryTags.some((tag) => tag.length > 40)
+    ) {
+      return NextResponse.json(
+        { error: "Use no more than 20 dietary tags, each 40 characters or fewer." },
+        { status: 400 }
+      );
+    }
+
     if (photo) {
       try {
         const savedPhoto = await saveUploadedPhoto(photo);
         if (savedPhoto) {
-          imageUrl = savedPhoto;
+          imageUrl = savedPhoto.imageUrl;
+          uploadedFilePath = savedPhoto.filePath;
         }
       } catch (error) {
         return NextResponse.json(
@@ -173,9 +221,10 @@ export async function POST(request: Request) {
       },
     });
 
+    uploadedFilePath = undefined;
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    if (uploadedFilePath) await rm(uploadedFilePath, { force: true }).catch(() => undefined);
+    if (uploadedFilePath) await removeUploadedPhoto(uploadedFilePath);
     console.error("Failed to create menu item:", error);
     return NextResponse.json(
       { error: "Could not save the menu item." },
@@ -189,6 +238,8 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
   }
 
+  let uploadedFilePath: string | undefined;
+
   try {
     const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data");
     const formData = isMultipart ? await request.formData() : null;
@@ -198,8 +249,8 @@ export async function PUT(request: Request) {
     const name = String(formData?.get("name") ?? body?.name ?? "").trim();
     const description = String(formData?.get("description") ?? body?.description ?? "").trim();
     const categoryName = String(formData?.get("category") ?? body?.category ?? "").trim();
-    const price = Number(formData?.get("price") ?? body?.price ?? 0);
-    const prepTimeMins = Number(formData?.get("prepTimeMins") ?? body?.prepTimeMins ?? 0);
+    const rawPrice = formData?.get("price") ?? body?.price;
+    const rawPrepTimeMins = formData?.get("prepTimeMins") ?? body?.prepTimeMins;
     const photoEntry = formData?.get("photo");
     const shouldReplacePhoto = photoEntry instanceof File && photoEntry.size > 0;
     const photo = shouldReplacePhoto ? photoEntry : null;
@@ -208,9 +259,36 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Menu item ID is required." }, { status: 400 });
     }
 
-    const existingItem = await prisma.menuItem.findUnique({ where: { id } });
+    const existingItem = await prisma.menuItem.findFirst({
+      where: {
+        id,
+        category: { hotel: { slug: DEFAULT_HOTEL_SLUG } },
+      },
+    });
     if (!existingItem) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
+    }
+
+    const price = rawPrice === undefined || rawPrice === null || rawPrice === ""
+      ? Number(existingItem.price)
+      : Number(rawPrice);
+    const prepTimeMins = rawPrepTimeMins === undefined || rawPrepTimeMins === null || rawPrepTimeMins === ""
+      ? existingItem.prepTimeMins
+      : Number(rawPrepTimeMins);
+    if (!Number.isFinite(price) || price < 0 || price >= 100000000) {
+      return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
+    }
+    if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
+      return NextResponse.json(
+        { error: "Preparation time must be a whole number of 0 or more." },
+        { status: 400 }
+      );
+    }
+    if (name.length > 120 || description.length > 2000 || categoryName.length > 80) {
+      return NextResponse.json(
+        { error: "Name, description, or category is too long." },
+        { status: 400 }
+      );
     }
 
     let imageUrl = existingItem.imageUrl;
@@ -218,7 +296,8 @@ export async function PUT(request: Request) {
       try {
         const savedPhoto = await saveUploadedPhoto(photo);
         if (savedPhoto) {
-          imageUrl = savedPhoto;
+          imageUrl = savedPhoto.imageUrl;
+          uploadedFilePath = savedPhoto.filePath;
         }
       } catch (error) {
         return NextResponse.json(
@@ -238,14 +317,21 @@ export async function PUT(request: Request) {
         categoryId: category.id,
         name: name || existingItem.name,
         description: description || existingItem.description,
-        price: Number.isFinite(price) && price >= 0 ? price : existingItem.price,
-        prepTimeMins: Number.isInteger(prepTimeMins) && prepTimeMins >= 0 ? prepTimeMins : existingItem.prepTimeMins,
+        price,
+        prepTimeMins,
         imageUrl,
       },
     });
 
+    uploadedFilePath = undefined;
+    const previousPhotoPath = getUploadedPhotoPath(existingItem.imageUrl);
+    if (shouldReplacePhoto && previousPhotoPath) {
+      await removeUploadedPhoto(previousPhotoPath);
+    }
+
     return NextResponse.json(item, { status: 200 });
   } catch (error) {
+    if (uploadedFilePath) await removeUploadedPhoto(uploadedFilePath);
     console.error("Failed to update menu item:", error);
     return NextResponse.json({ error: "Could not update the menu item." }, { status: 500 });
   }
@@ -264,17 +350,19 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Menu item ID is required." }, { status: 400 });
     }
 
-    const item = await prisma.menuItem.findUnique({ where: { id } });
+    const item = await prisma.menuItem.findFirst({
+      where: {
+        id,
+        category: { hotel: { slug: DEFAULT_HOTEL_SLUG } },
+      },
+    });
     if (!item) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
     }
 
-    if (item.imageUrl && item.imageUrl.startsWith("/uploads/")) {
-      const filePath = join(process.cwd(), "public", item.imageUrl.replace(/^\//, ""));
-      await rm(filePath, { force: true }).catch(() => undefined);
-    }
-
+    const photoPath = getUploadedPhotoPath(item.imageUrl);
     await prisma.menuItem.delete({ where: { id } });
+    if (photoPath) await removeUploadedPhoto(photoPath);
 
     return NextResponse.json({ ok: true, id }, { status: 200 });
   } catch (error) {

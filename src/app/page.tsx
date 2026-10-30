@@ -8,7 +8,6 @@ import {
   MENU_ITEMS,
   MenuItem,
 } from "../data/menuData";
-import QRScannerModal from "../components/QRScannerModal";
 import FoodDetailModal from "../components/FoodDetailModal";
 import GuestFeedbackPopover from "../components/GuestFeedbackPopover";
 
@@ -53,6 +52,7 @@ const supportedDietaryTags = new Set<MenuItem["dietary"][number]>([
 export default function Home() {
   const [showAdminReturn, setShowAdminReturn] = useState(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
+  const [databaseMenuLoaded, setDatabaseMenuLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,9 +71,13 @@ export default function Home() {
     const loadMenu = async () => {
       try {
         const response = await fetch("/api/menu", { cache: "no-store" });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Failed to load the latest menu.");
         const categories = (await response.json()) as ApiMenuCategory[];
+        if (!Array.isArray(categories)) {
+          throw new Error("The menu response has an invalid format.");
+        }
         if (isMounted) setDatabaseCategories(categories);
+        if (isMounted) setDatabaseMenuLoaded(true);
       } catch (error) {
         console.error("Could not load the latest menu:", error);
       }
@@ -88,7 +92,6 @@ export default function Home() {
     };
   }, []);
 
-  const hasDatabaseMenu = databaseCategories.some((category) => category.items.length > 0);
   const databaseItems: MenuItem[] = databaseCategories.flatMap((category) =>
     category.items.filter((item) => item.isAvailable).map((item) => ({
       id: item.id,
@@ -109,8 +112,8 @@ export default function Home() {
       allergens: [],
     }))
   );
-  const menuItems = hasDatabaseMenu ? databaseItems : MENU_ITEMS;
-  const menuCategories = hasDatabaseMenu
+  const menuItems = databaseMenuLoaded ? databaseItems : MENU_ITEMS;
+  const menuCategories = databaseMenuLoaded
     ? [
         { id: "all", name: "All Dishes" },
         ...databaseCategories.map((category) => ({ id: category.id, name: category.name })),
@@ -118,7 +121,6 @@ export default function Home() {
     : CATEGORIES;
 
   // Modals state
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<MenuItem | null>(null);
 
 
@@ -424,12 +426,6 @@ export default function Home() {
       </section>
 
       {/* MODALS */}
-      <QRScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onConfirmMenuScan={() => {}}
-      />
-
       <FoodDetailModal
         item={selectedFood}
         isOpen={!!selectedFood}
