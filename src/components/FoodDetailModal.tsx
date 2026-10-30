@@ -50,7 +50,7 @@ export default function FoodDetailModal({ item, isOpen, onClose }: FoodDetailMod
               </span>
             </div>
             <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-amber-300">
-              ${item.price}
+              ETB {item.price.toFixed(2)}
             </p>
           </div>
         </div>

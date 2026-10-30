@@ -58,7 +58,7 @@ export const MENU_ITEMS: MenuItem[] = [
         name: "Truffle Intensity",
         choices: [
           { label: "Standard Black Truffle" },
-          { label: "Extra Shaved Truffle (+ $8)", extraPrice: 8 },
+          { label: "Extra Shaved Truffle (+ ETB 8)", extraPrice: 8 },
         ],
       },
       {
@@ -99,8 +99,8 @@ export const MENU_ITEMS: MenuItem[] = [
         name: "Side Selection",
         choices: [
           { label: "Truffle Mashed Potatoes" },
-          { label: "Grilled Asparagus (+ $4)", extraPrice: 4 },
-          { label: "Wild Mushroom Saute (+ $6)", extraPrice: 6 },
+          { label: "Grilled Asparagus (+ ETB 4)", extraPrice: 4 },
+          { label: "Wild Mushroom Saute (+ ETB 6)", extraPrice: 6 },
         ],
       },
     ],
@@ -150,7 +150,7 @@ export const MENU_ITEMS: MenuItem[] = [
         name: "Add Bread",
         choices: [
           { label: "No Bread" },
-          { label: "Warm Garlic Focaccia (+ $4)", extraPrice: 4 },
+          { label: "Warm Garlic Focaccia (+ ETB 4)", extraPrice: 4 },
         ],
       },
     ],
@@ -175,7 +175,7 @@ export const MENU_ITEMS: MenuItem[] = [
         name: "Ice Cream Flavor",
         choices: [
           { label: "Tahitian Vanilla Bean" },
-          { label: "Pistachio Gelato (+ $2)", extraPrice: 2 },
+          { label: "Pistachio Gelato (+ ETB 2)", extraPrice: 2 },
           { label: "Salted Caramel Gelato" },
         ],
       },
@@ -217,8 +217,8 @@ export const MENU_ITEMS: MenuItem[] = [
         name: "Add Protein",
         choices: [
           { label: "None" },
-          { label: "Smoked Salmon (+ $6)", extraPrice: 6 },
-          { label: "Crispy Bacon (+ $4)", extraPrice: 4 },
+          { label: "Smoked Salmon (+ ETB 6)", extraPrice: 6 },
+          { label: "Crispy Bacon (+ ETB 4)", extraPrice: 4 },
         ],
       },
     ],

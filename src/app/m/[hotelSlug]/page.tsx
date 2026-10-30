@@ -77,7 +77,7 @@ export default async function GuestMenu({ params }: { params: Promise<{ hotelSlu
                           {item.name}
                         </h3>
                         <span className="font-serif text-lg text-amber font-semibold whitespace-nowrap">
-                          ${Number(item.price).toFixed(2)}
+                          ETB {Number(item.price).toFixed(2)}
                         </span>
                       </div>
                       

@@ -393,7 +393,7 @@ export default function Home() {
 
                   {/* Price Tag */}
                   <div className="absolute bottom-3 right-3 rounded-2xl bg-stone-950/90 border border-amber-500/30 px-3.5 py-1 text-base font-extrabold text-amber-300 backdrop-blur-md">
-                    ${item.price}
+                    ETB {item.price.toFixed(2)}
                   </div>
                 </div>
 

@@ -627,7 +627,7 @@ const filteredItems = databaseItems.filter((item) => {
                         <Image src={item.image} alt={item.name} fill className="object-cover" />
                       </div>
                       <div className="text-right">
-                        <span className="text-sm font-extrabold text-amber-300">${item.price}</span>
+                        <span className="text-sm font-extrabold text-amber-300">ETB {item.price.toFixed(2)}</span>
                         <div className="text-[10px] text-stone-400 mt-0.5">
                           {item.prepTimeMinutes} mins prep
                         </div>
