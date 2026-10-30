@@ -42,7 +42,7 @@ Use a unique password and secret in production. The admin session expires after 
 
 ## Database Seed
 
-`prisma/seed.ts` adds sample data. It is not idempotent, so run it only against an empty database:
+`prisma/seed.ts` adds missing sample categories and menu items without duplicating existing entries. Existing menu items are left unchanged:
 
 ```powershell
 npx prisma db seed
