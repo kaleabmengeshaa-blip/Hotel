@@ -19,6 +19,7 @@ model Hotel {
   tables      Table[]
   categories  Category[]
   feedbacks   Feedback[]
+  guestSelections GuestSelection[]
   @@index([slug])
 }
 
@@ -74,4 +75,32 @@ model Feedback {
   message   String   @db.Text
   createdAt DateTime @default(now())
   @@index([hotelId, createdAt])
+}
+
+model GuestSelection {
+  id          String                @id @default(uuid())
+  hotelId     String
+  hotel       Hotel                 @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guestToken  String
+  isDismissed Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  items       GuestSelectionItem[]
+  @@unique([hotelId, guestToken])
+  @@index([hotelId, updatedAt])
+}
+
+model GuestSelectionItem {
+  id            String         @id @default(uuid())
+  selectionId   String
+  selection     GuestSelection @relation(fields: [selectionId], references: [id], onDelete: Cascade)
+  menuItemId    String
+  name          String
+  categoryName  String
+  quantity      Int
+  unitPrice     Decimal        @db.Decimal(10, 2)
+  unitPriceUsd  Decimal?       @db.Decimal(10, 2)
+  updatedAt     DateTime       @updatedAt
+  @@unique([selectionId, menuItemId])
+  @@index([selectionId])
 }

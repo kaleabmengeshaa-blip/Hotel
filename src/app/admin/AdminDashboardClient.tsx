@@ -59,6 +59,20 @@ type AdminMenuCategory = {
   items: AdminMenuItem[];
 };
 
+type AdminGuestSelection = {
+  id: string;
+  guestLabel: string;
+  updatedAt: string;
+  items: {
+    itemId: string;
+    name: string;
+    categoryName: string;
+    quantity: number;
+    unitPrice: number;
+    unitPriceUsd: number | null;
+  }[];
+};
+
 export default function AdminDashboardClient({
   initialFeedback,
 }: {
@@ -89,6 +103,10 @@ export default function AdminDashboardClient({
   const [dbCategories, setDbCategories] = useState<AdminMenuCategory[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const [availabilitySavingId, setAvailabilitySavingId] = useState<string | null>(null);
+  const [guestSelections, setGuestSelections] = useState<AdminGuestSelection[]>([]);
+  const [isLoadingSelections, setIsLoadingSelections] = useState(true);
+  const [selectionError, setSelectionError] = useState("");
+  const [clearingSelectionId, setClearingSelectionId] = useState<string | null>(null);
 
 useEffect(() => {
   fetch("/api/menu")
@@ -105,6 +123,41 @@ useEffect(() => {
     .finally(() => {
       setIsLoadingMenu(false);
     });
+}, []);
+
+useEffect(() => {
+  let isMounted = true;
+
+  const loadSelections = async () => {
+    try {
+      const response = await fetch("/api/selections", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not load guest selections.");
+      }
+      if (!Array.isArray(result)) {
+        throw new Error("The guest selections response is invalid.");
+      }
+      if (isMounted) {
+        setGuestSelections(result as AdminGuestSelection[]);
+        setSelectionError("");
+      }
+    } catch (error) {
+      console.error("Could not load guest selections:", error);
+      if (isMounted) {
+        setSelectionError(error instanceof Error ? error.message : "Could not load guest selections.");
+      }
+    } finally {
+      if (isMounted) setIsLoadingSelections(false);
+    }
+  };
+
+  void loadSelections();
+  const refreshTimer = window.setInterval(() => void loadSelections(), 5000);
+  return () => {
+    isMounted = false;
+    window.clearInterval(refreshTimer);
+  };
 }, []);
 
   const handleSaveDish = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -176,6 +229,28 @@ useEffect(() => {
       setFormMessage(`"${itemName}" was deleted.`);
     } catch (error) {
       setFormMessage(error instanceof Error ? error.message : "Could not delete the dish.");
+    }
+  };
+
+  const handleClearSelection = async (selectionId: string) => {
+    setClearingSelectionId(selectionId);
+    setSelectionError("");
+    try {
+      const response = await fetch("/api/selections", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectionId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not clear the guest selection.");
+      }
+      setGuestSelections((selections) => selections.filter((selection) => selection.id !== selectionId));
+    } catch (error) {
+      console.error("Could not clear guest selection:", error);
+      setSelectionError(error instanceof Error ? error.message : "Could not clear the guest selection.");
+    } finally {
+      setClearingSelectionId(null);
     }
   };
 
@@ -440,6 +515,81 @@ const filteredItems = databaseItems.filter((item) => {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="space-y-5 border-t border-white/10 pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
+                Live guest selections
+              </h2>
+              <p className="text-xs text-stone-400">
+                Anonymous food selections update here automatically ({guestSelections.length})
+              </p>
+            </div>
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+              Refreshes every 5 seconds
+            </span>
+          </div>
+
+          {selectionError && (
+            <p role="alert" className="text-sm text-rose-300">{selectionError}</p>
+          )}
+
+          {isLoadingSelections ? (
+            <p role="status" className="text-sm text-stone-400">Loading guest selections...</p>
+          ) : guestSelections.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-stone-950 p-6 text-sm text-stone-400">
+              <Utensils className="mb-2 h-5 w-5 text-stone-500" />
+              No guest selections yet. New selections will appear here.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {guestSelections.map((selection) => {
+                const total = selection.items.reduce(
+                  (sum, item) => sum + item.quantity * item.unitPrice,
+                  0
+                );
+                return (
+                  <article key={selection.id} className="rounded-2xl border border-amber-500/20 bg-stone-950 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-white">{selection.guestLabel}</h3>
+                        <time className="mt-1 block text-xs text-stone-500" dateTime={selection.updatedAt}>
+                          Updated {new Date(selection.updatedAt).toLocaleString()}
+                        </time>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={clearingSelectionId === selection.id}
+                        onClick={() => void handleClearSelection(selection.id)}
+                        className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-stone-300 hover:bg-white/10 disabled:opacity-50"
+                      >
+                        {clearingSelectionId === selection.id ? "Clearing..." : "Clear"}
+                      </button>
+                    </div>
+                    <ul className="mt-4 space-y-2 border-t border-white/10 pt-3">
+                      {selection.items.map((item) => (
+                        <li key={item.itemId} className="flex justify-between gap-3 text-sm">
+                          <span className="text-stone-200">
+                            <span className="mr-2 font-bold text-amber-300">{item.quantity}×</span>
+                            {item.name}
+                            <span className="ml-2 text-xs text-stone-500">{item.categoryName}</span>
+                          </span>
+                          <span className="shrink-0 text-stone-400">
+                            ETB {(item.quantity * item.unitPrice).toFixed(2)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 border-t border-white/10 pt-3 text-right text-sm font-bold text-amber-300">
+                      Total: ETB {total.toFixed(2)}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* KITCHEN & MENU MANAGEMENT SECTION */}

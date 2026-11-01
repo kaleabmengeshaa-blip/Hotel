@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import {
   Sparkles,
   Flame,
   Plus,
+  Minus,
   Utensils,
   Coffee,
   ArrowLeft,
@@ -39,6 +40,20 @@ type ApiMenuCategory = {
   }[];
 };
 
+type GuestSelectionLine = {
+  itemId: string;
+  name: string;
+  categoryName: string;
+  quantity: number;
+  unitPrice: number;
+  unitPriceUsd: number | null;
+};
+
+type GuestSelectionProduct = Pick<
+  GuestSelectionLine,
+  "name" | "categoryName" | "unitPrice" | "unitPriceUsd"
+>;
+
 const supportedDietaryTags = new Set<MenuItem["dietary"][number]>([
   "vegetarian",
   "vegan",
@@ -53,6 +68,14 @@ export default function Home() {
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
   const [menuLoadState, setMenuLoadState] = useState<"loading" | "ready" | "error">("loading");
   const menuHasLoaded = React.useRef(false);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [guestSelections, setGuestSelections] = useState<Record<string, GuestSelectionLine>>({});
+  const guestSelectionsRef = useRef<Record<string, GuestSelectionLine>>({});
+  const selectionWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  const [selectionReady, setSelectionReady] = useState(false);
+  const [pendingSelectionWrites, setPendingSelectionWrites] = useState(0);
+  const [selectionError, setSelectionError] = useState("");
+  const [selectionExpanded, setSelectionExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,6 +119,49 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadGuestSelection = async () => {
+      try {
+        let token = window.sessionStorage.getItem("guest-selection-token");
+        if (!token || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(token)) {
+          token = window.crypto.randomUUID();
+          window.sessionStorage.setItem("guest-selection-token", token);
+        }
+        if (isMounted) setGuestToken(token);
+
+        const response = await fetch(
+          `/api/selections?guestToken=${encodeURIComponent(token)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) throw new Error("Could not load your saved selections.");
+        const entries = (await response.json()) as GuestSelectionLine[];
+        if (!Array.isArray(entries)) throw new Error("The selections response is invalid.");
+
+        const selections = Object.fromEntries(
+          entries.map((entry) => [entry.itemId, entry])
+        );
+        if (isMounted) {
+          guestSelectionsRef.current = selections;
+          setGuestSelections(selections);
+        }
+      } catch (error) {
+        console.error("Could not load guest selections:", error);
+        if (isMounted) {
+          setSelectionError("Could not load saved selections. You can still add items.");
+        }
+      } finally {
+        if (isMounted) setSelectionReady(true);
+      }
+    };
+
+    void loadGuestSelection();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const databaseItems: MenuItem[] = databaseCategories.flatMap((category) =>
     category.items.filter((item) => item.isAvailable).map((item) => ({
       id: item.id,
@@ -118,6 +184,12 @@ export default function Home() {
     }))
   );
   const menuItems = databaseItems;
+  const selectedLines = Object.values(guestSelections);
+  const selectedItemCount = selectedLines.reduce((total, item) => total + item.quantity, 0);
+  const selectedSubtotal = selectedLines.reduce(
+    (total, item) => total + item.quantity * item.unitPrice,
+    0
+  );
   const menuCategories = [
     { id: "all", name: "All Dishes" },
     ...databaseCategories.map((category) => ({ id: category.id, name: category.name })),
@@ -169,6 +241,51 @@ export default function Home() {
     setSelectedDietary((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  };
+
+  const updateGuestSelection = (
+    itemId: string,
+    product: GuestSelectionProduct,
+    change: number
+  ) => {
+    if (!guestToken || !selectionReady) return;
+
+    const currentQuantity = guestSelectionsRef.current[itemId]?.quantity ?? 0;
+    const quantity = Math.min(99, Math.max(0, currentQuantity + change));
+    if (quantity === currentQuantity) return;
+
+    const updatedSelections = { ...guestSelectionsRef.current };
+    if (quantity === 0) {
+      delete updatedSelections[itemId];
+    } else {
+      updatedSelections[itemId] = { itemId, ...product, quantity };
+    }
+
+    guestSelectionsRef.current = updatedSelections;
+    setGuestSelections(updatedSelections);
+    setSelectionError("");
+    setPendingSelectionWrites((count) => count + 1);
+
+    selectionWriteQueue.current = selectionWriteQueue.current.then(async () => {
+      const latestQuantity = guestSelectionsRef.current[itemId]?.quantity ?? 0;
+      const response = await fetch("/api/selections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestToken, itemId, quantity: latestQuantity }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not save your selection.");
+      }
+      setSelectionError("");
+    }).catch((error: unknown) => {
+      console.error("Could not save guest selection:", error);
+      setSelectionError(
+        error instanceof Error ? error.message : "Could not save your selection. Please try again."
+      );
+    }).finally(() => {
+      setPendingSelectionWrites((count) => Math.max(0, count - 1));
+    });
   };
 
   return (
@@ -433,16 +550,61 @@ export default function Home() {
                       </span>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFood(item);
-                      }}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-stone-950 font-bold transition hover:bg-amber-400 group-hover:scale-105"
-                      title="View details"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                      {(guestSelections[item.id]?.quantity ?? 0) === 0 ? (
+                        <button
+                          type="button"
+                          disabled={!selectionReady}
+                          onClick={() =>
+                            updateGuestSelection(item.id, {
+                              name: item.name,
+                              categoryName: databaseCategories.find((category) => category.id === item.category)?.name ?? "Menu",
+                              unitPrice: item.price,
+                              unitPriceUsd: item.priceUsd ?? null,
+                            }, 1)
+                          }
+                          className="flex h-9 items-center gap-1.5 rounded-xl bg-amber-500 px-3 text-xs font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" /> Add
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-stone-900 px-1.5 py-1">
+                          <button
+                            type="button"
+                            aria-label={`Remove one ${item.name}`}
+                            onClick={() =>
+                              updateGuestSelection(item.id, {
+                                name: item.name,
+                                categoryName: databaseCategories.find((category) => category.id === item.category)?.name ?? "Menu",
+                                unitPrice: item.price,
+                                unitPriceUsd: item.priceUsd ?? null,
+                              }, -1)
+                            }
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-200 hover:bg-white/10"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="min-w-5 text-center text-sm font-bold text-white">
+                            {guestSelections[item.id].quantity}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Add one ${item.name}`}
+                            onClick={() =>
+                              updateGuestSelection(item.id, {
+                                name: item.name,
+                                categoryName: databaseCategories.find((category) => category.id === item.category)?.name ?? "Menu",
+                                unitPrice: item.price,
+                                unitPriceUsd: item.priceUsd ?? null,
+                              }, 1)
+                            }
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-200 hover:bg-white/10"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -457,6 +619,88 @@ export default function Home() {
         isOpen={!!selectedFood}
         onClose={() => setSelectedFood(null)}
       />
+
+      {selectedItemCount > 0 && (
+        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-2xl">
+          {selectionExpanded && (
+            <section className="mb-3 max-h-[50vh] overflow-y-auto rounded-2xl border border-amber-500/30 bg-stone-950 p-4 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="font-bold text-white">Your selection</h2>
+                <button
+                  type="button"
+                  onClick={() => setSelectionExpanded(false)}
+                  className="rounded-lg px-3 py-1 text-xs font-semibold text-stone-300 hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3">
+                {selectedLines.map((line) => {
+                  const available = databaseItems.some((item) => item.id === line.itemId);
+                  return (
+                    <div key={line.itemId} className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{line.name}</p>
+                        <p className="text-xs text-stone-400">{line.categoryName} · ETB {(line.unitPrice * line.quantity).toFixed(2)}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Remove one ${line.name}`}
+                          onClick={() => updateGuestSelection(line.itemId, line, -1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="min-w-5 text-center text-sm font-bold text-white">{line.quantity}</span>
+                        <button
+                          type="button"
+                          aria-label={`Add one ${line.name}`}
+                          disabled={!available || line.quantity >= 99}
+                          onClick={() => updateGuestSelection(line.itemId, line, 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-stone-950/95 p-3 shadow-2xl backdrop-blur-md">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white">
+                {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected · ETB {selectedSubtotal.toFixed(2)}
+              </p>
+              <p className="truncate text-xs text-stone-400">
+                {pendingSelectionWrites > 0 ? "Updating the kitchen dashboard..." : "Sent to the kitchen dashboard"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectionExpanded((expanded) => !expanded)}
+              className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
+            >
+              {selectionExpanded ? "Hide" : "View selection"}
+            </button>
+          </div>
+          {selectionError && (
+            <p role="alert" className="mt-2 rounded-xl border border-rose-500/30 bg-stone-950 px-3 py-2 text-xs text-rose-300">
+              {selectionError}
+            </p>
+          )}
+        </div>
+      )}
+      {selectionError && selectedItemCount === 0 && (
+        <p
+          role="alert"
+          className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-2xl rounded-xl border border-rose-500/30 bg-stone-950 px-3 py-2 text-xs text-rose-300"
+        >
+          {selectionError}
+        </p>
+      )}
     </main>
   );
 }
