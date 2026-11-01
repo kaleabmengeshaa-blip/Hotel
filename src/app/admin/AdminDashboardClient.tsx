@@ -9,6 +9,7 @@ import { logoutAdmin } from "./login/actions";
 import { UNIVERSAL_MENU_INFO } from "../../data/menuData";
 import QRGeneratorModal from "../../components/QRGeneratorModal";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
+import { createQrDataUrl, downloadQrDataUrl } from "@/lib/qr-code";
 
 import {
   Smartphone,
@@ -83,8 +84,11 @@ export default function AdminDashboardClient({
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
   const hotelName = UNIVERSAL_MENU_INFO.venueName;
   const currentOrigin = useBrowserOrigin();
+  const liveUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
   const [copied, setCopied] = useState(false);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [qrData, setQrData] = useState<{ url: string; dataUrl: string } | null>(null);
+  const [qrError, setQrError] = useState<{ url: string; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -107,6 +111,26 @@ export default function AdminDashboardClient({
   const [isLoadingSelections, setIsLoadingSelections] = useState(true);
   const [selectionError, setSelectionError] = useState("");
   const [clearingSelectionId, setClearingSelectionId] = useState<string | null>(null);
+  const qrDataUrl = qrData?.url === liveUrl ? qrData.dataUrl : "";
+  const qrErrorMessage = qrError?.url === liveUrl ? qrError.message : "";
+
+useEffect(() => {
+  let isMounted = true;
+  void createQrDataUrl(liveUrl, 260)
+    .then((dataUrl) => {
+      if (isMounted) setQrData({ url: liveUrl, dataUrl });
+    })
+    .catch((error: unknown) => {
+      console.error("Could not create the menu QR code:", error);
+      if (isMounted) {
+        setQrError({ url: liveUrl, message: "Could not create the QR code. Please try again." });
+      }
+    });
+
+  return () => {
+    isMounted = false;
+  };
+}, [liveUrl]);
 
 useEffect(() => {
   fetch("/api/menu")
@@ -269,9 +293,6 @@ useEffect(() => {
     setFormMessage("");
   };
 
-  const liveUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
-  const qrImageApi = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(liveUrl)}&color=0f172a&bgcolor=f8fafc`;
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(liveUrl);
     setCopied(true);
@@ -423,12 +444,18 @@ const filteredItems = databaseItems.filter((item) => {
             {/* Live QR Card */}
             <div className="flex flex-col sm:flex-row items-center gap-6 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950 p-6 shadow-2xl backdrop-blur-xl">
               <div className="rounded-2xl border-4 border-amber-500/40 bg-white p-3 shadow-lg shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrImageApi}
-                  alt="Universal Menu QR Code"
-                  className="h-44 w-44 rounded-lg object-contain"
-                />
+                {qrDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={qrDataUrl}
+                    alt="Universal Menu QR Code"
+                    className="h-44 w-44 rounded-lg object-contain"
+                  />
+                ) : (
+                  <div className="flex h-44 w-44 items-center justify-center rounded-lg text-xs text-stone-500">
+                    {qrErrorMessage || "Creating QR code..."}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 flex-1 text-center sm:text-left">
@@ -456,15 +483,14 @@ const filteredItems = databaseItems.filter((item) => {
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">
-                  <a
-                    href={qrImageApi}
-                    download="Universal_Table_Menu_QR.png"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400 transition"
+                  <button
+                    type="button"
+                    onClick={() => downloadQrDataUrl(qrDataUrl, "Universal_Table_Menu_QR.png")}
+                    disabled={!qrDataUrl}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400 transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Download className="h-3.5 w-3.5" /> Download QR
-                  </a>
+                  </button>
                   <button
                     onClick={() => window.print()}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 py-2 text-xs font-bold text-white hover:bg-white/20 transition"

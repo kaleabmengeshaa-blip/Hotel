@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { QrCode, X, Download, Printer, Check, Copy, Sparkles } from "lucide-react";
 import { UNIVERSAL_MENU_INFO } from "../data/menuData";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
+import { createQrDataUrl, downloadQrDataUrl } from "@/lib/qr-code";
 
 interface QRGeneratorModalProps {
   isOpen: boolean;
@@ -13,15 +14,35 @@ interface QRGeneratorModalProps {
 export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalProps) {
   const [hotelName, setHotelName] = useState(UNIVERSAL_MENU_INFO.venueName);
   const [copied, setCopied] = useState(false);
+  const [qrData, setQrData] = useState<{ url: string; dataUrl: string } | null>(null);
+  const [qrError, setQrError] = useState<{ url: string; message: string } | null>(null);
   const currentOrigin = useBrowserOrigin();
+
+  const encodedUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
+  const qrDataUrl = qrData?.url === encodedUrl ? qrData.dataUrl : "";
+  const qrErrorMessage = qrError?.url === encodedUrl ? qrError.message : "";
+
+  useEffect(() => {
+    let isMounted = true;
+    void createQrDataUrl(encodedUrl, 280)
+      .then((dataUrl) => {
+        if (isMounted) setQrData({ url: encodedUrl, dataUrl });
+      })
+      .catch((error: unknown) => {
+        console.error("Could not create the menu QR code:", error);
+        if (isMounted) {
+          setQrError({ url: encodedUrl, message: "Could not create the QR code. Please try again." });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [encodedUrl]);
 
   if (!isOpen) return null;
 
   const displayHotelName = hotelName.trim() || UNIVERSAL_MENU_INFO.venueName;
-
-  // Uses the real live deployed URL (e.g. your-app.vercel.app)
-  const encodedUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
-  const qrImageApi = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(encodedUrl)}&color=0f172a&bgcolor=f8fafc`;
 
   const handleCopyLink = async () => {
     try {
@@ -81,12 +102,18 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
             </p>
 
             <div className="rounded-2xl border-4 border-amber-500/40 bg-white p-3 shadow-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrImageApi}
-                alt="Live Menu QR Code"
-                className="h-44 w-44 rounded-lg object-contain"
-              />
+              {qrDataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={qrDataUrl}
+                  alt="Live Menu QR Code"
+                  className="h-44 w-44 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="flex h-44 w-44 items-center justify-center rounded-lg text-xs text-stone-500">
+                  {qrErrorMessage || "Creating QR code..."}
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-stone-300">
@@ -103,15 +130,14 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <a
-              href={qrImageApi}
-              download="Live_Mobile_Menu_QR.png"
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-stone-950 hover:bg-amber-400 transition"
+            <button
+              type="button"
+              onClick={() => downloadQrDataUrl(qrDataUrl, "Live_Mobile_Menu_QR.png")}
+              disabled={!qrDataUrl}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-stone-950 hover:bg-amber-400 transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" /> Download Sticker
-            </a>
+            </button>
             <button
               onClick={() => window.print()}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/20 transition"
