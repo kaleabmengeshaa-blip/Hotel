@@ -765,11 +765,11 @@ const filteredItems = databaseItems.filter((item) => {
                 className="rounded-xl border border-white/15 bg-stone-900 px-3 py-1.5 text-xs text-stone-300 focus:border-amber-500 focus:outline-none"
               >
                 <option value="all">All Categories</option>
-{dbCategories.map((cat) => (
-  <option key={cat.id} value={cat.name}>
-    {cat.name}
-  </option>
-))}
+                {menuCategoryOptions.map((categoryName) => (
+                  <option key={categoryName} value={categoryName}>
+                    {categoryName}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
