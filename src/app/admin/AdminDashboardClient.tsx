@@ -105,6 +105,10 @@ export default function AdminDashboardClient({
   const [formMessage, setFormMessage] = useState("");
   const [dbCategories, setDbCategories] = useState<AdminMenuCategory[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryMessage, setCategoryMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [availabilitySavingId, setAvailabilitySavingId] = useState<string | null>(null);
   const [guestSelections, setGuestSelections] = useState<AdminGuestSelection[]>([]);
   const [isLoadingSelections, setIsLoadingSelections] = useState(true);
@@ -264,6 +268,79 @@ useEffect(() => {
       setFormMessage(`"${itemName}" was deleted.`);
     } catch (error) {
       setFormMessage(error instanceof Error ? error.message : "Could not delete the dish.");
+    }
+  };
+
+  const handleAddCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSavingCategory(true);
+    setCategoryMessage(null);
+
+    try {
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Could not add the category.");
+      }
+
+      setDbCategories((categories) => [...categories, result.category as AdminMenuCategory]);
+      setNewCategoryName("");
+      setCategoryMessage({ ok: true, text: `Category "${result.category.name}" was added.` });
+    } catch (error) {
+      setCategoryMessage({
+        ok: false,
+        text: error instanceof Error ? error.message : "Could not add the category.",
+      });
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const category = dbCategories.find((item) => item.id === categoryId);
+    if (!category) return;
+
+    const dishWarning =
+      category.items.length > 0
+        ? ` This will also permanently delete ${category.items.length} dish${
+            category.items.length === 1 ? "" : "es"
+          }.`
+        : "";
+    if (!window.confirm(`Delete category "${category.name}"?${dishWarning} This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingCategoryId(categoryId);
+    setCategoryMessage(null);
+    try {
+      const response = await fetch("/api/menu", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not delete the category.");
+      }
+
+      setDbCategories((categories) => categories.filter((item) => item.id !== categoryId));
+      if (selectedCategory === category.name) setSelectedCategory("all");
+      setCategoryMessage({
+        ok: true,
+        text: `Category "${category.name}" and its dishes were deleted.`,
+      });
+    } catch (error) {
+      setCategoryMessage({
+        ok: false,
+        text: error instanceof Error ? error.message : "Could not delete the category.",
+      });
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
@@ -678,6 +755,63 @@ const filteredItems = databaseItems.filter((item) => {
               </select>
             </div>
           </div>
+
+          <section className="space-y-4 rounded-2xl border border-white/10 bg-stone-950 p-5">
+            <div>
+              <h3 className="text-sm font-bold text-white">Manage categories</h3>
+              <p className="mt-1 text-xs text-stone-400">
+                Deleting a category also permanently deletes all dishes in it.
+              </p>
+            </div>
+            <form onSubmit={handleAddCategory} className="flex flex-wrap gap-2">
+              <input
+                required
+                maxLength={80}
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                placeholder="New category name"
+                aria-label="New category name"
+                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isSavingCategory || !newCategoryName.trim()}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 hover:bg-amber-400 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {isSavingCategory ? "Adding..." : "Add category"}
+              </button>
+            </form>
+            {categoryMessage && (
+              <p
+                role="status"
+                className={`text-sm ${categoryMessage.ok ? "text-emerald-300" : "text-rose-300"}`}
+              >
+                {categoryMessage.text}
+              </p>
+            )}
+            {dbCategories.length > 0 && (
+              <ul className="flex flex-wrap gap-2">
+                {dbCategories.map((category) => (
+                  <li
+                    key={category.id}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                  >
+                    <span>{category.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteCategory(category.id)}
+                      disabled={isSavingCategory || deletingCategoryId !== null}
+                      aria-label={`Delete ${category.name} category`}
+                      className="font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                    >
+                      {deletingCategoryId === category.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           {showAddForm && (
             <form

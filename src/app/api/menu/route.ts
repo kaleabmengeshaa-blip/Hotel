@@ -417,7 +417,26 @@ export async function DELETE(request: Request) {
 
   try {
     const body = await request.json().catch(() => ({}));
+    const categoryId = String(body.categoryId ?? "").trim();
     const id = String(body.id ?? "").trim();
+
+    if (categoryId) {
+      const category = await prisma.category.findFirst({
+        where: {
+          id: categoryId,
+          hotel: { slug: DEFAULT_HOTEL_SLUG },
+        },
+        include: { items: { select: { imageUrl: true } } },
+      });
+      if (!category) {
+        return NextResponse.json({ error: "Category not found." }, { status: 404 });
+      }
+
+      await prisma.category.delete({ where: { id: categoryId } });
+      await Promise.all(category.items.map((item) => removeUploadedPhoto(item.imageUrl)));
+
+      return NextResponse.json({ ok: true, id: categoryId }, { status: 200 });
+    }
 
     if (!id) {
       return NextResponse.json({ error: "Menu item ID is required." }, { status: 400 });
