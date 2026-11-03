@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { prisma, DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { requiresMenuItemDescription } from "@/lib/menu-validation";
 
 export const runtime = "nodejs";
 
@@ -214,6 +215,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!description && requiresMenuItemDescription(categoryName)) {
+      return NextResponse.json(
+        { error: "A description is required for food and starter items." },
+        { status: 400 }
+      );
+    }
+
     if (name.length > 120 || description.length > 2000 || categoryName.length > 80) {
       return NextResponse.json(
         { error: "Name, description, or category is too long." },
@@ -332,6 +340,11 @@ export async function PUT(request: Request) {
     if (!existingItem) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
     }
+    const existingCategory = await prisma.category.findUnique({
+      where: { id: existingItem.categoryId },
+      select: { name: true },
+    });
+    const effectiveCategoryName = categoryName || existingCategory?.name || "General";
 
     const price = rawPrice === undefined || rawPrice === null || rawPrice === ""
       ? Number(existingItem.price)
@@ -354,6 +367,12 @@ export async function PUT(request: Request) {
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
       return NextResponse.json(
         { error: "Preparation time must be a whole number of 0 or more." },
+        { status: 400 }
+      );
+    }
+    if (!description && requiresMenuItemDescription(effectiveCategoryName)) {
+      return NextResponse.json(
+        { error: "A description is required for food and starter items." },
         { status: 400 }
       );
     }
@@ -382,7 +401,7 @@ export async function PUT(request: Request) {
 
     const hotel = await getDefaultHotel();
 
-    const category = await ensureCategory(hotel.id, categoryName || (await prisma.category.findUnique({ where: { id: existingItem.categoryId } }))?.name || "General");
+    const category = await ensureCategory(hotel.id, effectiveCategoryName);
 
     const item = await prisma.menuItem.update({
       where: { id },

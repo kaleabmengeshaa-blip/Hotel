@@ -9,6 +9,7 @@ import { UNIVERSAL_MENU_INFO } from "../../data/menuData";
 import QRGeneratorModal from "../../components/QRGeneratorModal";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
 import { createQrDataUrl, downloadQrDataUrl } from "@/lib/qr-code";
+import { requiresMenuItemDescription } from "@/lib/menu-validation";
 
 import {
   Smartphone,
@@ -929,13 +930,18 @@ const filteredItems = databaseItems.filter((item) => {
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
-                Description (optional)
+                Description ({requiresMenuItemDescription(newItem.category) ? "required" : "optional"})
                 <textarea
+                  required={requiresMenuItemDescription(newItem.category)}
                   rows={3}
                   value={newItem.description}
                   onChange={(event) => setNewItem({ ...newItem, description: event.target.value })}
                   className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Describe the dish or drink"
+                  placeholder={
+                    requiresMenuItemDescription(newItem.category)
+                      ? "Describe the dish and its ingredients"
+                      : "Describe the drink (optional)"
+                  }
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
