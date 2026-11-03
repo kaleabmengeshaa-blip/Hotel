@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   // The guest menu lives at "/". Older printed QR codes pointed to /m/<slug>
   // (e.g. /m/linen-lace), so keep those working by forwarding them to the live menu.
   async redirects() {
