@@ -771,9 +771,9 @@ const filteredItems = databaseItems.filter((item) => {
           {showAddCategoryForm && (
             <form
               onSubmit={handleAddCategory}
-              className="grid gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-2"
+              className="grid max-w-xl gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-[minmax(0,24rem)_auto]"
             >
-              <label className="text-xs font-semibold text-stone-300">
+              <label className="max-w-sm text-xs font-semibold text-stone-300">
                 Category name
                 <input
                   required
