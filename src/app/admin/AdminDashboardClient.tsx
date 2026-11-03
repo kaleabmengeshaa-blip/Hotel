@@ -122,7 +122,7 @@ export default function AdminDashboardClient({
   const qrErrorMessage = qrError?.url === liveUrl ? qrError.message : "";
   const menuCategoryOptions = Array.from(
     new Set([...drinkCategoryOptions, ...dbCategories.map((category) => category.name)])
-  );
+  ).filter((categoryName) => categoryName.trim().toLowerCase() !== "drinks");
 
 useEffect(() => {
   let isMounted = true;
