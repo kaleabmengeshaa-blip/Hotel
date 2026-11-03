@@ -223,15 +223,11 @@ export default function Home() {
   const menuCategories = [
     { id: "all", name: "All Dishes" },
     ...databaseCategories
-      .filter(
-        (category) =>
-          !getGuestCategoryId(category.name) && category.name.trim().toLowerCase() !== "drinks"
-      )
-      .map((category) => ({ id: category.id, name: category.name })),
-    ...guestDrinkCategories.map((name) => ({
-      id: `drink-${name.toLowerCase().replace(/\s+/g, "-")}`,
-      name,
-    })),
+      .filter((category) => category.name.trim().toLowerCase() !== "drinks")
+      .map((category) => ({
+        id: getGuestCategoryId(category.name) ?? category.id,
+        name: category.name,
+      })),
   ];
 
   // Modals state

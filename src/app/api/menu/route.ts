@@ -18,14 +18,13 @@ export async function GET() {
       where: { slug: DEFAULT_HOTEL_SLUG },
       select: {
         categories: {
-          where: isAdmin ? undefined : { items: { some: { isAvailable: true } } },
           include: {
             items: {
               where: isAdmin ? undefined : { isAvailable: true },
               orderBy: { displayOrder: "asc" },
             },
           },
-          orderBy: { displayOrder: "asc" },
+          orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
         },
       },
     });
