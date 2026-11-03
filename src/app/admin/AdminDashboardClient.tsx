@@ -738,7 +738,7 @@ const filteredItems = databaseItems.filter((item) => {
                   setCategoryMessage(null);
                   setShowAddCategoryForm((visible) => !visible);
                 }}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-stone-200 hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
               >
                 <Plus className="h-4 w-4" /> Add category
               </button>
