@@ -192,7 +192,7 @@ export default function Home() {
       longDescription: item.description,
       price: Number(item.price),
       priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
-      image: item.imageUrl || "/images/burrata_salad.png",
+      image: item.imageUrl ?? "",
       rating: 0,
       reviewsCount: 0,
       prepTimeMinutes: item.prepTimeMins,
@@ -508,12 +508,18 @@ export default function Home() {
               >
                 {/* Food Image */}
                 <div className="relative h-52 w-full overflow-hidden bg-stone-900">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-stone-500">
+                      No photo
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent" />
 
                   {/* Top Badges */}

@@ -435,7 +435,7 @@ useEffect(() => {
     description: item.description,
     price: Number(item.price),
     priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
-    image: item.imageUrl || "/images/burrata_salad.png",
+    image: item.imageUrl ?? "",
     isAvailable: item.isAvailable,
     prepTimeMinutes: item.prepTimeMins,
     dietary: item.dietaryTags || [],
@@ -1008,7 +1008,13 @@ const filteredItems = databaseItems.filter((item) => {
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="relative h-14 w-14 overflow-hidden rounded-xl bg-stone-900 shrink-0">
-                        <Image src={item.image} alt={item.name} fill className="object-cover" />
+                        {item.image ? (
+                          <Image src={item.image} alt={item.name} fill className="object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[8px] text-stone-500">
+                            No photo
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-extrabold text-amber-300">
