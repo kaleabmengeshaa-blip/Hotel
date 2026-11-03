@@ -555,9 +555,11 @@ export default function Home() {
                       {item.name}
                     </h4>
 
-                    <p className="mt-2 text-xs leading-relaxed text-stone-400 line-clamp-2">
-                      {item.description}
-                    </p>
+                    {item.description && (
+                      <p className="mt-2 text-xs leading-relaxed text-stone-400 line-clamp-2">
+                        {item.description}
+                      </p>
+                    )}
                   </div>
 
                   {/* Card Footer */}

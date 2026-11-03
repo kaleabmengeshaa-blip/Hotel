@@ -929,14 +929,13 @@ const filteredItems = databaseItems.filter((item) => {
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
-                Description
+                Description (optional)
                 <textarea
-                  required
                   rows={3}
                   value={newItem.description}
                   onChange={(event) => setNewItem({ ...newItem, description: event.target.value })}
                   className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Describe the dish and its ingredients"
+                  placeholder="Describe the dish or drink"
                 />
               </label>
               <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
@@ -1024,7 +1023,9 @@ const filteredItems = databaseItems.filter((item) => {
 
                     <div>
                       <h4 className="font-bold text-white text-base">{item.name}</h4>
-                      <p className="text-xs text-stone-400 mt-1 line-clamp-2">{item.description}</p>
+                      {item.description && (
+                        <p className="text-xs text-stone-400 mt-1 line-clamp-2">{item.description}</p>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-1">

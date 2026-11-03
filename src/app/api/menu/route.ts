@@ -207,9 +207,9 @@ export async function POST(request: Request) {
         : [];
     }
 
-    if (!name || !description || !categoryName) {
+    if (!name || !categoryName) {
       return NextResponse.json(
-        { error: "Name, description, and category are required." },
+        { error: "Name and category are required." },
         { status: 400 }
       );
     }
