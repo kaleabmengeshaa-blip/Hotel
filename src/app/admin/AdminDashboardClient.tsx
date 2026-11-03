@@ -60,6 +60,8 @@ type AdminMenuCategory = {
   items: AdminMenuItem[];
 };
 
+const drinkCategoryOptions = ["Hot Drinks", "Soft Drinks", "Cold Drinks"];
+
 type AdminGuestSelection = {
   id: string;
   guestLabel: string;
@@ -118,6 +120,9 @@ export default function AdminDashboardClient({
   const [clearingSelectionId, setClearingSelectionId] = useState<string | null>(null);
   const qrDataUrl = qrData?.url === liveUrl ? qrData.dataUrl : "";
   const qrErrorMessage = qrError?.url === liveUrl ? qrError.message : "";
+  const menuCategoryOptions = Array.from(
+    new Set([...drinkCategoryOptions, ...dbCategories.map((category) => category.name)])
+  );
 
 useEffect(() => {
   let isMounted = true;
@@ -904,19 +909,21 @@ const filteredItems = databaseItems.filter((item) => {
               </label>
               <label className="text-xs font-semibold text-stone-300">
                 Category
-                <input
+                <select
                   required
-                  list="menu-category-options"
                   value={newItem.category}
                   onChange={(event) => setNewItem({ ...newItem, category: event.target.value })}
                   className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Choose or enter a category"
-                />
-                <datalist id="menu-category-options">
-                  {dbCategories.map((category) => (
-                    <option key={category.id} value={category.name} />
+                >
+                  <option value="" disabled>
+                    Choose a category
+                  </option>
+                  {menuCategoryOptions.map((categoryName) => (
+                    <option key={categoryName} value={categoryName}>
+                      {categoryName}
+                    </option>
                   ))}
-                </datalist>
+                </select>
               </label>
               <label className="text-xs font-semibold text-stone-300">
                 Preparation time (minutes)
