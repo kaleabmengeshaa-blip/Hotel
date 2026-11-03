@@ -237,9 +237,8 @@ export default function Home() {
   // Category & Filter state
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
 
-  // Filter menu items based on category, search, and dietary tags
+  // Filter menu items by category and search query.
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
       // Category match
@@ -260,23 +259,9 @@ export default function Home() {
         if (!matchesName && !matchesDesc && !matchesIng) return false;
       }
 
-      // Dietary filter match
-      if (selectedDietary.length > 0) {
-        const matchesAllDietary = selectedDietary.every((tag) =>
-          item.dietary.some((dietaryTag) => dietaryTag === tag)
-        );
-        if (!matchesAllDietary) return false;
-      }
-
       return true;
     });
-  }, [activeCategory, menuItems, searchQuery, selectedDietary]);
-
-  const toggleDietaryFilter = (tag: string) => {
-    setSelectedDietary((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
+  }, [activeCategory, menuItems, searchQuery]);
 
   const updateGuestSelection = (
     itemId: string,
@@ -389,34 +374,6 @@ export default function Home() {
               <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
             )}
 
-            {/* Dietary Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider shrink-0 mr-1">
-                Filter:
-              </span>
-              {[
-                { tag: "chef-special", label: "Chef's Specia ⭐" },
-                { tag: "vegetarian", label: "Vegetarian 🌿" },
-                { tag: "vegan", label: "Vegan 🌱" },
-                { tag: "gluten-free", label: "Gluten-Free 🌾" },
-                { tag: "halal", label: "Halal 🌙" },
-              ].map(({ tag, label }) => {
-                const isActive = selectedDietary.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => toggleDietaryFilter(tag)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      isActive
-                        ? "border-amber-500 bg-amber-500 text-stone-950 shadow-md"
-                        : "border-white/10 bg-stone-900 text-stone-300 hover:border-white/30 hover:text-white"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           {/* Category Tabs */}
@@ -455,16 +412,15 @@ export default function Home() {
             </p>
           </div>
 
-          {(searchQuery || selectedDietary.length > 0) && (
+          {(searchQuery || activeCategory !== "all") && (
             <button
               onClick={() => {
                 setSearchQuery("");
-                setSelectedDietary([]);
                 setActiveCategory("all");
               }}
               className="text-xs font-semibold text-amber-400 hover:underline"
             >
-              Reset Filters
+              Reset
             </button>
           )}
         </div>
@@ -497,13 +453,12 @@ export default function Home() {
             <p className="text-xs text-stone-400 max-w-sm mx-auto">
               {databaseItems.length === 0
                 ? "Please check back later."
-                : "Try adjusting your search keywords or clearing dietary filters to view all menu selections."}
+                : "Try changing the selected category or search keywords."}
             </p>
             {databaseItems.length > 0 && (
               <button
                 onClick={() => {
                   setSearchQuery("");
-                  setSelectedDietary([]);
                   setActiveCategory("all");
                 }}
                 className="mt-2 inline-flex rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
