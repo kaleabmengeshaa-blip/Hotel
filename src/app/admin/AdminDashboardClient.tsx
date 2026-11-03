@@ -109,6 +109,7 @@ export default function AdminDashboardClient({
   const [categoryMessage, setCategoryMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
   const [availabilitySavingId, setAvailabilitySavingId] = useState<string | null>(null);
   const [guestSelections, setGuestSelections] = useState<AdminGuestSelection[]>([]);
   const [isLoadingSelections, setIsLoadingSelections] = useState(true);
@@ -290,6 +291,7 @@ useEffect(() => {
 
       setDbCategories((categories) => [...categories, result.category as AdminMenuCategory]);
       setNewCategoryName("");
+      setShowAddCategoryForm(false);
       setCategoryMessage({ ok: true, text: `Category "${result.category.name}" was added.` });
     } catch (error) {
       setCategoryMessage({
@@ -730,6 +732,16 @@ const filteredItems = databaseItems.filter((item) => {
               >
                 <Plus className="h-4 w-4" /> Add dish
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryMessage(null);
+                  setShowAddCategoryForm((visible) => !visible);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-stone-200 hover:bg-white/10"
+              >
+                <Plus className="h-4 w-4" /> Add category
+              </button>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
                 <input
@@ -756,6 +768,58 @@ const filteredItems = databaseItems.filter((item) => {
             </div>
           </div>
 
+          {showAddCategoryForm && (
+            <form
+              onSubmit={handleAddCategory}
+              className="grid gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-2"
+            >
+              <label className="text-xs font-semibold text-stone-300">
+                Category name
+                <input
+                  required
+                  maxLength={80}
+                  autoFocus
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder="e.g. Hot Drinks"
+                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
+                />
+              </label>
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit"
+                  disabled={isSavingCategory || !newCategoryName.trim()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 hover:bg-amber-400 disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  {isSavingCategory ? "Adding..." : "Add category"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategoryForm(false);
+                    setNewCategoryName("");
+                    setCategoryMessage(null);
+                  }}
+                  disabled={isSavingCategory}
+                  className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-stone-200 hover:bg-white/10 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+              {categoryMessage && (
+                <p
+                  role="status"
+                  className={`text-sm sm:col-span-2 ${
+                    categoryMessage.ok ? "text-emerald-300" : "text-rose-300"
+                  }`}
+                >
+                  {categoryMessage.text}
+                </p>
+              )}
+            </form>
+          )}
+
           <section className="space-y-4 rounded-2xl border border-white/10 bg-stone-950 p-5">
             <div>
               <h3 className="text-sm font-bold text-white">Manage categories</h3>
@@ -763,26 +827,7 @@ const filteredItems = databaseItems.filter((item) => {
                 Deleting a category also permanently deletes all dishes in it.
               </p>
             </div>
-            <form onSubmit={handleAddCategory} className="flex flex-wrap gap-2">
-              <input
-                required
-                maxLength={80}
-                value={newCategoryName}
-                onChange={(event) => setNewCategoryName(event.target.value)}
-                placeholder="New category name"
-                aria-label="New category name"
-                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={isSavingCategory || !newCategoryName.trim()}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 hover:bg-amber-400 disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-                {isSavingCategory ? "Adding..." : "Add category"}
-              </button>
-            </form>
-            {categoryMessage && (
+            {!showAddCategoryForm && categoryMessage && (
               <p
                 role="status"
                 className={`text-sm ${categoryMessage.ok ? "text-emerald-300" : "text-rose-300"}`}

@@ -32,7 +32,7 @@ A QR-based digital menu with an admin dashboard for managing menu items, photos,
 
 Open `http://localhost:3000` for the guest menu and `http://localhost:3000/admin` for the admin dashboard.
 
-In the admin dashboard, use **Manage categories** to add categories or delete them. Deleting a category also permanently deletes its dishes.
+In the admin dashboard, use **Add category** beside **Add dish** to open the category form. Delete categories from **Manage categories**; deleting a category also permanently deletes its dishes.
 
 Generate an admin session secret with:
 
