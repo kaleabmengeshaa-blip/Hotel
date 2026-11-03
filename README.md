@@ -34,6 +34,8 @@ Open `http://localhost:3000` for the guest menu and `http://localhost:3000/admin
 
 In the admin dashboard, use **Add category** beside **Add dish** to open the category form. Food and starter items require a description; drink and beverage items do not. Delete categories from **Manage categories**; deleting a category also permanently deletes its dishes.
 
+Guest selections expire after 10 minutes without activity. Deleting a category or dish also removes it from saved guest selections.
+
 Generate an admin session secret with:
 
 ```powershell

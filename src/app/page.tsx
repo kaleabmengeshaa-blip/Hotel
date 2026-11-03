@@ -83,6 +83,7 @@ export default function Home() {
   const [guestSelections, setGuestSelections] = useState<Record<string, GuestSelectionLine>>({});
   const guestSelectionsRef = useRef<Record<string, GuestSelectionLine>>({});
   const selectionWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingSelectionWritesRef = useRef(0);
   const [selectionReady, setSelectionReady] = useState(false);
   const [pendingSelectionWrites, setPendingSelectionWrites] = useState(0);
   const [selectionError, setSelectionError] = useState("");
@@ -192,6 +193,46 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!guestToken || !selectionReady) return;
+    let isMounted = true;
+
+    const refreshGuestSelection = async () => {
+      if (document.visibilityState !== "visible" || pendingSelectionWritesRef.current > 0) return;
+
+      try {
+        const response = await fetch(
+          `/api/selections?guestToken=${encodeURIComponent(guestToken)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) throw new Error("Could not refresh your saved selections.");
+        const entries = (await response.json()) as GuestSelectionLine[];
+        if (!Array.isArray(entries)) throw new Error("The selections response is invalid.");
+        if (!isMounted || pendingSelectionWritesRef.current > 0) return;
+
+        const selections = Object.fromEntries(
+          entries.map((entry) => [entry.itemId, entry])
+        );
+        guestSelectionsRef.current = selections;
+        setGuestSelections(selections);
+      } catch (error) {
+        console.error("Could not refresh guest selections:", error);
+      }
+    };
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void refreshGuestSelection();
+    };
+    const refreshTimer = window.setInterval(refreshIfVisible, MENU_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [guestToken, selectionReady]);
+
   const databaseItems: MenuItem[] = databaseCategories.flatMap((category) =>
     category.items.filter((item) => item.isAvailable).map((item) => ({
       id: item.id,
@@ -284,6 +325,7 @@ export default function Home() {
     guestSelectionsRef.current = updatedSelections;
     setGuestSelections(updatedSelections);
     setSelectionError("");
+    pendingSelectionWritesRef.current += 1;
     setPendingSelectionWrites((count) => count + 1);
 
     selectionWriteQueue.current = selectionWriteQueue.current.then(async () => {
@@ -304,6 +346,7 @@ export default function Home() {
         error instanceof Error ? error.message : "Could not save your selection. Please try again."
       );
     }).finally(() => {
+      pendingSelectionWritesRef.current = Math.max(0, pendingSelectionWritesRef.current - 1);
       setPendingSelectionWrites((count) => Math.max(0, count - 1));
     });
   };

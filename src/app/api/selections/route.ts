@@ -9,15 +9,15 @@ const noCacheHeaders = { "Cache-Control": "no-store" };
 
 // Guest selections are only useful during a visit. Anything untouched for this long
 // is deleted (items cascade) so the table does not grow forever.
-const SELECTION_RETENTION_MS = 24 * 60 * 60 * 1000;
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const SELECTION_RETENTION_MS = 10 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 60 * 1000;
 let lastCleanupAt = 0;
 
 function selectionCutoff() {
   return new Date(Date.now() - SELECTION_RETENTION_MS);
 }
 
-// Runs at most once per hour per server instance; the admin dashboard polls this route
+// Runs at most once per minute per server instance; the admin dashboard polls this route
 // every few seconds, which is enough to keep cleanup going without a separate cron job.
 async function cleanUpStaleSelections(hotelId: string) {
   const now = Date.now();
@@ -56,6 +56,11 @@ export async function GET(request: Request) {
         where: { hotelId_guestToken: { hotelId: hotel.id, guestToken } },
         include: { items: { orderBy: { updatedAt: "asc" } } },
       });
+
+      if (selection && selection.updatedAt < selectionCutoff()) {
+        await prisma.guestSelection.delete({ where: { id: selection.id } });
+        return NextResponse.json([], { headers: noCacheHeaders });
+      }
 
       return NextResponse.json(
         (selection?.items ?? []).map((item) => ({
@@ -158,9 +163,14 @@ export async function POST(request: Request) {
       await prisma.$transaction(async (transaction) => {
         const selection = await transaction.guestSelection.findUnique({
           where: { hotelId_guestToken: { hotelId: hotel.id, guestToken } },
-          select: { id: true },
+          select: { id: true, updatedAt: true },
         });
         if (selection) {
+          if (selection.updatedAt < selectionCutoff()) {
+            await transaction.guestSelection.delete({ where: { id: selection.id } });
+            return;
+          }
+
           await transaction.guestSelectionItem.deleteMany({
             where: { selectionId: selection.id, menuItemId: itemId },
           });
@@ -190,6 +200,14 @@ export async function POST(request: Request) {
     }
 
     await prisma.$transaction(async (transaction) => {
+      const existingSelection = await transaction.guestSelection.findUnique({
+        where: { hotelId_guestToken: { hotelId: hotel.id, guestToken } },
+        select: { id: true, updatedAt: true },
+      });
+      if (existingSelection && existingSelection.updatedAt < selectionCutoff()) {
+        await transaction.guestSelection.delete({ where: { id: existingSelection.id } });
+      }
+
       const selection = await transaction.guestSelection.upsert({
         where: { hotelId_guestToken: { hotelId: hotel.id, guestToken } },
         create: { hotelId: hotel.id, guestToken },

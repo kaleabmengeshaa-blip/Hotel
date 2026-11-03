@@ -444,13 +444,27 @@ export async function DELETE(request: Request) {
           id: categoryId,
           hotel: { slug: DEFAULT_HOTEL_SLUG },
         },
-        include: { items: { select: { imageUrl: true } } },
+        include: { items: { select: { id: true, imageUrl: true } } },
       });
       if (!category) {
         return NextResponse.json({ error: "Category not found." }, { status: 404 });
       }
 
-      await prisma.category.delete({ where: { id: categoryId } });
+      const categoryItemIds = category.items.map((item) => item.id);
+      await prisma.$transaction(async (transaction) => {
+        if (categoryItemIds.length > 0) {
+          await transaction.guestSelectionItem.deleteMany({
+            where: { menuItemId: { in: categoryItemIds } },
+          });
+        }
+        await transaction.category.delete({ where: { id: categoryId } });
+        await transaction.guestSelection.deleteMany({
+          where: {
+            hotelId: category.hotelId,
+            items: { none: {} },
+          },
+        });
+      });
       await Promise.all(category.items.map((item) => removeUploadedPhoto(item.imageUrl)));
 
       return NextResponse.json({ ok: true, id: categoryId }, { status: 200 });
@@ -465,12 +479,22 @@ export async function DELETE(request: Request) {
         id,
         category: { hotel: { slug: DEFAULT_HOTEL_SLUG } },
       },
+      include: { category: { select: { hotelId: true } } },
     });
     if (!item) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
     }
 
-    await prisma.menuItem.delete({ where: { id } });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.guestSelectionItem.deleteMany({ where: { menuItemId: id } });
+      await transaction.menuItem.delete({ where: { id } });
+      await transaction.guestSelection.deleteMany({
+        where: {
+          hotelId: item.category.hotelId,
+          items: { none: {} },
+        },
+      });
+    });
     await removeUploadedPhoto(item.imageUrl);
 
     return NextResponse.json({ ok: true, id }, { status: 200 });
