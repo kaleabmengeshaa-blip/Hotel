@@ -1011,8 +1011,8 @@ const filteredItems = databaseItems.filter((item) => {
                         {item.image ? (
                           <Image src={item.image} alt={item.name} fill className="object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[8px] text-stone-500">
-                            No photo
+                          <div className="line-clamp-3 flex h-full items-center justify-center px-1 text-center text-[8px] text-stone-400">
+                            {item.name}
                           </div>
                         )}
                       </div>

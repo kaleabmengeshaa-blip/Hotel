@@ -516,8 +516,8 @@ export default function Home() {
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-stone-500">
-                      No photo
+                    <div className="flex h-full items-center justify-center px-6 text-center font-semibold text-stone-400">
+                      {item.name}
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent" />
