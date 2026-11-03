@@ -63,6 +63,15 @@ const supportedDietaryTags = new Set<MenuItem["dietary"][number]>([
   "halal",
 ]);
 
+const guestDrinkCategories = ["Hot Drinks", "Soft Drinks", "Cold Drinks"];
+
+function getGuestCategoryId(categoryName: string): string | null {
+  const drinkCategory = guestDrinkCategories.find(
+    (name) => name.toLowerCase() === categoryName.trim().toLowerCase()
+  );
+  return drinkCategory ? `drink-${drinkCategory.toLowerCase().replace(/\s+/g, "-")}` : null;
+}
+
 const MENU_REFRESH_INTERVAL_MS = 30_000;
 
 export default function Home() {
@@ -187,7 +196,7 @@ export default function Home() {
     category.items.filter((item) => item.isAvailable).map((item) => ({
       id: item.id,
       name: item.name,
-      category: category.id,
+      category: getGuestCategoryId(category.name) ?? category.id,
       description: item.description,
       longDescription: item.description,
       price: Number(item.price),
@@ -213,7 +222,16 @@ export default function Home() {
   );
   const menuCategories = [
     { id: "all", name: "All Dishes" },
-    ...databaseCategories.map((category) => ({ id: category.id, name: category.name })),
+    ...guestDrinkCategories.map((name) => ({
+      id: `drink-${name.toLowerCase().replace(/\s+/g, "-")}`,
+      name,
+    })),
+    ...databaseCategories
+      .filter(
+        (category) =>
+          !getGuestCategoryId(category.name) && category.name.trim().toLowerCase() !== "drinks"
+      )
+      .map((category) => ({ id: category.id, name: category.name })),
   ];
 
   // Modals state
