@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 import { MessageSquare, X } from 'lucide-react';
-import { submitFeedback } from '../../actions';
+import { submitFeedback } from '../app/actions';
 
 export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
   const [isOpen, setIsOpen] = useState(false);

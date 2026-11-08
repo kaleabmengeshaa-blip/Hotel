@@ -7,6 +7,33 @@ export const runtime = "nodejs";
 const guestTokenPattern = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const noCacheHeaders = { "Cache-Control": "no-store" };
 
+// Guest selections are only useful during a visit. Anything untouched for this long
+// is deleted (items cascade) so the table does not grow forever.
+const SELECTION_RETENTION_MS = 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+let lastCleanupAt = 0;
+
+function selectionCutoff() {
+  return new Date(Date.now() - SELECTION_RETENTION_MS);
+}
+
+// Runs at most once per hour per server instance; the admin dashboard polls this route
+// every few seconds, which is enough to keep cleanup going without a separate cron job.
+async function cleanUpStaleSelections(hotelId: string) {
+  const now = Date.now();
+  if (now - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
+  lastCleanupAt = now;
+
+  try {
+    const { count } = await prisma.guestSelection.deleteMany({
+      where: { hotelId, updatedAt: { lt: selectionCutoff() } },
+    });
+    if (count > 0) console.info(`Removed ${count} stale guest selection(s).`);
+  } catch (error) {
+    console.error("Failed to clean up stale guest selections:", error);
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -47,8 +74,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
     }
 
+    await cleanUpStaleSelections(hotel.id);
+
     const selections = await prisma.guestSelection.findMany({
-      where: { hotelId: hotel.id, isDismissed: false, items: { some: {} } },
+      where: {
+        hotelId: hotel.id,
+        isDismissed: false,
+        updatedAt: { gte: selectionCutoff() },
+        items: { some: {} },
+      },
       orderBy: { updatedAt: "desc" },
       take: 100,
       include: { items: { orderBy: { updatedAt: "asc" } } },

@@ -4,6 +4,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { del, put } from "@vercel/blob";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { prisma, DEFAULT_HOTEL_NAME, DEFAULT_HOTEL_SLUG } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 
@@ -38,6 +39,29 @@ export async function GET() {
   }
 }
 
+const MAX_PHOTO_DIMENSION = 1200;
+const PHOTO_QUALITY = 80;
+
+// Resize and re-encode uploads so guests download small, consistent images.
+// Also applies EXIF rotation (phone photos) and strips metadata such as GPS location.
+async function optimizePhoto(input: Buffer) {
+  try {
+    return await sharp(input, { failOn: "error" })
+      .rotate()
+      .resize({
+        width: MAX_PHOTO_DIMENSION,
+        height: MAX_PHOTO_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: PHOTO_QUALITY })
+      .toBuffer();
+  } catch (error) {
+    console.error("Failed to process menu photo:", error);
+    throw new Error("This photo could not be read. Try a different JPG, PNG, WebP, or GIF file.");
+  }
+}
+
 async function saveUploadedPhoto(photo: File | null) {
   if (!photo || photo.size === 0) return null;
 
@@ -56,8 +80,8 @@ async function saveUploadedPhoto(photo: File | null) {
     throw new Error("Choose a JPG, PNG, WebP, or GIF photo.");
   }
 
-  const fileName = `${randomUUID()}${photoExtensions[photo.type]}`;
-  const photoBytes = Buffer.from(await photo.arrayBuffer());
+  const photoBytes = await optimizePhoto(Buffer.from(await photo.arrayBuffer()));
+  const fileName = `${randomUUID()}.webp`;
 
   if (process.env.VERCEL) {
     if (!process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) {
@@ -66,7 +90,7 @@ async function saveUploadedPhoto(photo: File | null) {
 
     const blob = await put(`menu-items/${fileName}`, photoBytes, {
       access: "public",
-      contentType: photo.type,
+      contentType: "image/webp",
     });
 
     return { imageUrl: blob.url };

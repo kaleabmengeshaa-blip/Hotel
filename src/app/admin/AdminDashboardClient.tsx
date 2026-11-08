@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { deleteFeedback } from "../../../actions";
-import { toggleAvailability as saveAvailability } from "../actions";
+import { deleteFeedback, toggleAvailability as saveAvailability } from "../actions";
 import { logoutAdmin } from "./login/actions";
 import { UNIVERSAL_MENU_INFO } from "../../data/menuData";
 import QRGeneratorModal from "../../components/QRGeneratorModal";
@@ -151,8 +150,11 @@ useEffect(() => {
 
 useEffect(() => {
   let isMounted = true;
+  let isLoading = false;
 
   const loadSelections = async () => {
+    if (isLoading) return;
+    isLoading = true;
     try {
       const response = await fetch("/api/selections", { cache: "no-store" });
       const result = await response.json();
@@ -172,15 +174,24 @@ useEffect(() => {
         setSelectionError(error instanceof Error ? error.message : "Could not load guest selections.");
       }
     } finally {
+      isLoading = false;
       if (isMounted) setIsLoadingSelections(false);
     }
   };
 
+  // Poll only while the dashboard is on screen, so a forgotten background tab doesn't
+  // keep the database awake all day; catch up immediately when staff come back.
+  const refreshIfVisible = () => {
+    if (document.visibilityState === "visible") void loadSelections();
+  };
+
   void loadSelections();
-  const refreshTimer = window.setInterval(() => void loadSelections(), 5000);
+  const refreshTimer = window.setInterval(refreshIfVisible, 5000);
+  document.addEventListener("visibilitychange", refreshIfVisible);
   return () => {
     isMounted = false;
     window.clearInterval(refreshTimer);
+    document.removeEventListener("visibilitychange", refreshIfVisible);
   };
 }, []);
 

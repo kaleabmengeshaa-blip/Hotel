@@ -63,6 +63,8 @@ const supportedDietaryTags = new Set<MenuItem["dietary"][number]>([
   "halal",
 ]);
 
+const MENU_REFRESH_INTERVAL_MS = 30_000;
+
 export default function Home() {
   const [showAdminReturn, setShowAdminReturn] = useState(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
@@ -91,31 +93,50 @@ export default function Home() {
       }
     }
 
+    let isLoading = false;
+    let lastMenuJson = "";
+
     const loadMenu = async () => {
+      if (isLoading) return;
+      isLoading = true;
       try {
         const response = await fetch("/api/menu", { cache: "no-store" });
         if (!response.ok) throw new Error("Failed to load the latest menu.");
-        const categories = (await response.json()) as ApiMenuCategory[];
+        const menuJson = await response.text();
+        const categories = JSON.parse(menuJson) as ApiMenuCategory[];
         if (!Array.isArray(categories)) {
           throw new Error("The menu response has an invalid format.");
         }
-        if (isMounted) setDatabaseCategories(categories);
-        if (isMounted) {
-          menuHasLoaded.current = true;
-          setMenuLoadState("ready");
+        if (!isMounted) return;
+        // Only re-render when the menu actually changed since the last check.
+        if (menuJson !== lastMenuJson) {
+          lastMenuJson = menuJson;
+          setDatabaseCategories(categories);
         }
+        menuHasLoaded.current = true;
+        setMenuLoadState("ready");
       } catch (error) {
         console.error("Could not load the latest menu:", error);
         if (isMounted && !menuHasLoaded.current) setMenuLoadState("error");
+      } finally {
+        isLoading = false;
       }
     };
 
+    // Refresh periodically so sold-out dishes disappear, but only while the guest
+    // is actually looking at the page; catch up immediately when they return.
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void loadMenu();
+    };
+
     void loadMenu();
-    const refreshTimer = window.setInterval(() => void loadMenu(), 10000);
+    const refreshTimer = window.setInterval(refreshIfVisible, MENU_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
       isMounted = false;
       window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
     };
   }, []);
 
