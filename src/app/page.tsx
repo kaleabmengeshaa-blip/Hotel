@@ -390,11 +390,9 @@ export default function Home() {
       <section className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0f12]/95 backdrop-blur-md py-4">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4">
           
-          {/* Search Bar & Dietary Chips */}
-               <div className="flex flex-col md:flex-row gap-3 md:gap-30 items-stretch md:items-center justify-start">
-            
-            {/* Search Input */}
-              <div className="relative w-full md:max-w-xs">
+          {/* Search and feedback controls */}
+          <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <input
                 type="text"
@@ -414,7 +412,9 @@ export default function Home() {
             </div>
 
             {databaseCategories[0]?.hotelId && (
-              <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
+              <div className="justify-self-end">
+                <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
+              </div>
             )}
 
           </div>

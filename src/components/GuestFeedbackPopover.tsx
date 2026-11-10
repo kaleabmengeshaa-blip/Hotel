@@ -40,7 +40,7 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
         className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
       >
         <MessageSquare className="h-4 w-4" />
-        Comment
+        Feedback
       </button>
 
       {isOpen && (
