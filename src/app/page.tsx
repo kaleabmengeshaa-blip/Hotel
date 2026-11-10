@@ -431,7 +431,10 @@ export default function Home() {
               })}
             </div>
             {databaseCategories[0]?.hotelId && (
-              <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
+              <GuestFeedbackPopover
+                hotelId={databaseCategories[0].hotelId}
+                categories={databaseCategories}
+              />
             )}
           </div>
         </div>

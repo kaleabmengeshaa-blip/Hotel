@@ -34,17 +34,23 @@ export async function toggleAvailability(itemId: string): Promise<boolean> {
 
 export type Result = { ok: boolean; message: string };
 
-// Guests send a rating, optional comment, or both to the restaurant.
+// Guests send a rating and the menu items they tried, with an optional comment.
 export async function submitFeedback(
   hotelId: string,
   name: string,
   message: string,
-  rating: number
+  rating: number,
+  selectedItemIds: string[]
 ): Promise<Result> {
   try {
     const text = message.trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5)
       return { ok: false, message: 'Please choose a star rating from 1 to 5.' };
+    const itemIds = [...new Set(selectedItemIds)];
+    if (itemIds.length === 0)
+      return { ok: false, message: 'Please select what you had from the menu.' };
+    if (itemIds.length > 50)
+      return { ok: false, message: 'Please select no more than 50 menu items.' };
     if (text.length > 0 && text.length < 3)
       return { ok: false, message: 'Please write at least 3 characters or send just your rating.' };
     if (text.length > 1000)
@@ -53,8 +59,35 @@ export async function submitFeedback(
     const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } });
     if (!hotel) return { ok: false, message: 'Restaurant not found.' };
 
+    const selectedItems = await prisma.menuItem.findMany({
+      where: {
+        id: { in: itemIds },
+        isAvailable: true,
+        category: { hotelId },
+      },
+      select: {
+        id: true,
+        name: true,
+        category: { select: { name: true } },
+      },
+    });
+    if (selectedItems.length !== itemIds.length)
+      return { ok: false, message: 'One or more selected menu items are no longer available. Please refresh and try again.' };
+
+    const whatTheyHad = selectedItems
+      .map((item) => `${item.category.name} — ${item.name}`)
+      .join(', ');
+    const feedbackMessage = text
+      ? `What I had: ${whatTheyHad}\n\n${text}`
+      : `What I had: ${whatTheyHad}`;
+
     await prisma.feedback.create({
-      data: { hotelId, name: name.trim().slice(0, 60) || null, message: text, rating },
+      data: {
+        hotelId,
+        name: name.trim().slice(0, 60) || null,
+        message: feedbackMessage,
+        rating,
+      },
     });
     revalidatePath('/admin');
     return { ok: true, message: 'Thank you! Your feedback was sent to the restaurant.' };

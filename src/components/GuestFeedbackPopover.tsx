@@ -4,11 +4,24 @@ import { useState, useTransition, type FormEvent } from 'react';
 import { MessageSquare, Star, X } from 'lucide-react';
 import { submitFeedback } from '../app/actions';
 
-export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
+type FeedbackCategory = {
+  id: string;
+  name: string;
+  items: { id: string; name: string }[];
+};
+
+export default function GuestFeedbackPopover({
+  hotelId,
+  categories,
+}: {
+  hotelId: string;
+  categories: FeedbackCategory[];
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState(0);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -18,12 +31,13 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
 
     startTransition(async () => {
       try {
-        const result = await submitFeedback(hotelId, name, message, rating);
+        const result = await submitFeedback(hotelId, name, message, rating, selectedItemIds);
         setStatus(result);
         if (result.ok) {
           setName('');
           setMessage('');
           setRating(0);
+          setSelectedItemIds([]);
         }
       } catch {
         setStatus({ ok: false, message: 'Could not send your comment. Please try again.' });
@@ -36,11 +50,12 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
 
     startTransition(async () => {
       try {
-        const result = await submitFeedback(hotelId, name, '', rating);
+        const result = await submitFeedback(hotelId, name, '', rating, selectedItemIds);
         setStatus(result);
         if (result.ok) {
           setName('');
           setRating(0);
+          setSelectedItemIds([]);
         }
       } catch {
         setStatus({ ok: false, message: 'Could not send your rating. Please try again.' });
@@ -96,6 +111,45 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <fieldset>
+                <legend className="text-sm font-medium text-stone-300">
+                  Which foods or drinks did you have?
+                </legend>
+                <p className="mt-1 text-xs text-stone-500">
+                  Select everything you tried from the menu.
+                </p>
+                <div className="mt-3 max-h-48 space-y-3 overflow-y-auto rounded-lg border border-white/10 bg-stone-900/60 p-3">
+                  {categories.filter((category) => category.items.length > 0).map((category) => (
+                    <fieldset key={category.id}>
+                      <legend className="text-xs font-semibold text-amber-300">
+                        {category.name}
+                      </legend>
+                      <div className="mt-1 space-y-1">
+                        {category.items.map((item) => (
+                          <label
+                            key={item.id}
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-stone-300 hover:bg-white/5"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedItemIds.includes(item.id)}
+                              onChange={(event) =>
+                                setSelectedItemIds((current) =>
+                                  event.target.checked
+                                    ? [...current, item.id]
+                                    : current.filter((id) => id !== item.id)
+                                )
+                              }
+                              className="h-4 w-4 accent-amber-500"
+                            />
+                            {item.name}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
                 <legend className="text-sm font-medium text-stone-300">Your rating</legend>
                 <div className="mt-2 flex gap-1" role="group" aria-label="Rate your visit from 1 to 5 stars">
                   {[1, 2, 3, 4, 5].map((value) => (
@@ -118,7 +172,7 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
                   <button
                     type="button"
                     onClick={handleRatingSubmit}
-                    disabled={pending || rating === 0}
+                    disabled={pending || rating === 0 || selectedItemIds.length === 0}
                     className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {pending ? 'Sending...' : 'Send rating'}
@@ -158,7 +212,12 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
-                  disabled={pending || rating === 0 || message.trim().length < 3}
+                  disabled={
+                    pending ||
+                    rating === 0 ||
+                    selectedItemIds.length === 0 ||
+                    message.trim().length < 3
+                  }
                   className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pending ? 'Sending...' : 'Send feedback'}
