@@ -20,6 +20,7 @@ export default async function AdminPage() {
           id: true,
           name: true,
           message: true,
+          rating: true,
           createdAt: true,
         },
       },

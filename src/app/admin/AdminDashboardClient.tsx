@@ -29,6 +29,7 @@ import {
   Search,
   Plus,
   MessageSquare,
+  Star,
   RefreshCw,
   Trash2,
   LogOut,
@@ -38,6 +39,7 @@ type AdminFeedback = {
   id: string;
   name: string | null;
   message: string;
+  rating: number | null;
   createdAt: string;
 };
 
@@ -1148,6 +1150,15 @@ const filteredItems = databaseItems.filter((item) => {
                       <h3 className="text-sm font-semibold text-white">
                         {feedback.name || "Guest"}
                       </h3>
+                      {feedback.rating !== null && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300"
+                          aria-label={`${feedback.rating} out of 5 stars`}
+                        >
+                          <Star className="h-3.5 w-3.5" fill="currentColor" />
+                          {feedback.rating}/5
+                        </span>
+                      )}
                       <time className="text-xs text-stone-500" dateTime={feedback.createdAt}>
                         {feedback.createdAt.slice(0, 10)}
                       </time>

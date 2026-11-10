@@ -73,6 +73,7 @@ model Feedback {
   hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   name      String?
   message   String   @db.Text
+  rating    Int?
   createdAt DateTime @default(now())
   @@index([hotelId, createdAt])
 }

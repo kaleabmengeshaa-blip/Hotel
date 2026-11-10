@@ -38,10 +38,13 @@ export type Result = { ok: boolean; message: string };
 export async function submitFeedback(
   hotelId: string,
   name: string,
-  message: string
+  message: string,
+  rating: number
 ): Promise<Result> {
   try {
     const text = message.trim();
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5)
+      return { ok: false, message: 'Please choose a star rating from 1 to 5.' };
     if (text.length < 3) return { ok: false, message: 'Please write your comment first.' };
     if (text.length > 1000)
       return { ok: false, message: 'Your comment is too long (maximum 1000 characters).' };
@@ -50,10 +53,10 @@ export async function submitFeedback(
     if (!hotel) return { ok: false, message: 'Restaurant not found.' };
 
     await prisma.feedback.create({
-      data: { hotelId, name: name.trim().slice(0, 60) || null, message: text },
+      data: { hotelId, name: name.trim().slice(0, 60) || null, message: text, rating },
     });
     revalidatePath('/admin');
-    return { ok: true, message: 'Thank you! Your comment was sent to the restaurant.' };
+    return { ok: true, message: 'Thank you! Your feedback was sent to the restaurant.' };
   } catch {
     return { ok: false, message: 'Could not send your comment. Please try again.' };
   }

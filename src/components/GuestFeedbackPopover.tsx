@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
-import { MessageSquare, X } from 'lucide-react';
+import { MessageSquare, Star, X } from 'lucide-react';
 import { submitFeedback } from '../app/actions';
 
 export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
+  const [rating, setRating] = useState(0);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -17,11 +18,12 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
 
     startTransition(async () => {
       try {
-        const result = await submitFeedback(hotelId, name, message);
+        const result = await submitFeedback(hotelId, name, message, rating);
         setStatus(result);
         if (result.ok) {
           setName('');
           setMessage('');
+          setRating(0);
         }
       } catch {
         setStatus({ ok: false, message: 'Could not send your comment. Please try again.' });
@@ -59,9 +61,11 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="guest-feedback-title" className="text-lg font-bold text-white">
-                  Send a comment
+                  Leave feedback
                 </h2>
-                <p className="mt-1 text-sm text-stone-400">Your message goes to the restaurant.</p>
+                <p className="mt-1 text-sm text-stone-400">
+                  Rate your visit and share your experience with the restaurant.
+                </p>
               </div>
               <button
                 type="button"
@@ -74,8 +78,28 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <fieldset>
+                <legend className="text-sm font-medium text-stone-300">Your rating</legend>
+                <div className="mt-2 flex gap-1" role="group" aria-label="Rate your visit from 1 to 5 stars">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-label={`${value} ${value === 1 ? 'star' : 'stars'}`}
+                      aria-pressed={rating === value}
+                      onClick={() => setRating(value)}
+                      className="rounded-md p-1 text-amber-400 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+                    >
+                      <Star
+                        className="h-7 w-7"
+                        fill={value <= rating ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
               <label className="block text-sm font-medium text-stone-300">
-                Name <span className="font-normal text-stone-500">(optional)</span>
+                Your name <span className="font-normal text-stone-500">(optional)</span>
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -85,7 +109,7 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
                 />
               </label>
               <label className="block text-sm font-medium text-stone-300">
-                Comment
+                Your feedback
                 <textarea
                   required
                   minLength={3}
@@ -102,7 +126,7 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
-                  disabled={pending || message.trim().length < 3}
+                  disabled={pending || rating === 0 || message.trim().length < 3}
                   className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pending ? 'Sending...' : 'Send comment'}
