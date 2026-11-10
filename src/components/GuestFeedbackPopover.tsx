@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
-import { MessageSquare, Star, X } from 'lucide-react';
+import { MessageSquare, Search, Star, X } from 'lucide-react';
 import { submitFeedback } from '../app/actions';
 
 type FeedbackCategory = {
@@ -22,8 +22,17 @@ export default function GuestFeedbackPopover({
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState(0);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [itemSearch, setItemSearch] = useState('');
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const filteredCategories = categories
+    .map((category) => ({
+      ...category,
+      items: category.items.filter((item) =>
+        item.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
+      ),
+    }))
+    .filter((category) => category.items.length > 0);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +97,7 @@ export default function GuestFeedbackPopover({
             role="dialog"
             aria-modal="true"
             aria-labelledby="guest-feedback-title"
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-stone-950 p-5 text-stone-100 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-stone-950 p-5 text-stone-100 shadow-2xl"
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
@@ -115,15 +124,56 @@ export default function GuestFeedbackPopover({
                   Which foods or drinks did you have?
                 </legend>
                 <p className="mt-1 text-xs text-stone-500">
-                  Select everything you tried from the menu.
+                  Search the menu, then open a category to select what you tried.
                 </p>
-                <div className="mt-3 max-h-48 space-y-3 overflow-y-auto rounded-lg border border-white/10 bg-stone-900/60 p-3">
-                  {categories.filter((category) => category.items.length > 0).map((category) => (
-                    <fieldset key={category.id}>
-                      <legend className="text-xs font-semibold text-amber-300">
-                        {category.name}
-                      </legend>
-                      <div className="mt-1 space-y-1">
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+                  <input
+                    type="search"
+                    value={itemSearch}
+                    onChange={(event) => setItemSearch(event.target.value)}
+                    placeholder="Find a food or drink..."
+                    aria-label="Search foods and drinks"
+                    className="w-full rounded-lg border border-white/10 bg-stone-900 px-9 py-2 text-sm text-white outline-none placeholder:text-stone-500 focus:border-amber-500"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-stone-400" aria-live="polite">
+                  {selectedItemIds.length === 0
+                    ? 'No items selected'
+                    : `${selectedItemIds.length} item${selectedItemIds.length === 1 ? '' : 's'} selected`}
+                  {selectedItemIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedItemIds([])}
+                      className="ml-2 font-semibold text-amber-300 hover:text-amber-200"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </p>
+                <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-stone-900/60">
+                  {filteredCategories.length === 0 ? (
+                    <p className="p-3 text-sm text-stone-500">No matching foods or drinks.</p>
+                  ) : (
+                    filteredCategories.map((category) => {
+                      const selectedInCategory = category.items.filter((item) =>
+                        selectedItemIds.includes(item.id)
+                      ).length;
+                      return (
+                        <details
+                          key={category.id}
+                          open={Boolean(itemSearch.trim()) || undefined}
+                          className="group border-b border-white/5 last:border-0"
+                        >
+                          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold text-amber-300 marker:hidden">
+                            <span>{category.name}</span>
+                            <span className="text-xs text-stone-500">
+                              {selectedInCategory > 0
+                                ? `${selectedInCategory} selected`
+                                : `${category.items.length} items`}
+                            </span>
+                          </summary>
+                          <div className="space-y-1 px-2 pb-2">
                         {category.items.map((item) => (
                           <label
                             key={item.id}
@@ -145,8 +195,10 @@ export default function GuestFeedbackPopover({
                           </label>
                         ))}
                       </div>
-                    </fieldset>
-                  ))}
+                        </details>
+                      );
+                    })
+                  )}
                 </div>
               </fieldset>
               <fieldset>
