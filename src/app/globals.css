@@ -22,6 +22,14 @@ body {
   overflow-x: hidden;
 }
 
+html[lang="am"] body,
+html[lang="am"] h1,
+html[lang="am"] h2,
+html[lang="am"] h3,
+html[lang="am"] h4 {
+  font-family: "Noto Sans Ethiopic", "Nyala", var(--font-inter), sans-serif;
+}
+
 /* Custom sleek scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

@@ -9,6 +9,17 @@ import {
 import FoodDetailModal from "../components/FoodDetailModal";
 import GuestFeedbackPopover from "../components/GuestFeedbackPopover";
 import RotatingPrice from "../components/RotatingPrice";
+import {
+  formatMenuPrice,
+  getMenuCopy,
+  isMenuLocale,
+  translateDietaryTag,
+  translateMenuCategory,
+  translateMenuItem,
+  type MenuCurrency,
+  type MenuLanguage,
+  type MenuLocale,
+} from "../lib/menu-i18n";
 
 
 import {
@@ -76,6 +87,7 @@ const MENU_REFRESH_INTERVAL_MS = 30_000;
 const SELECTION_BUTTON_VISIBLE_MS = 5 * 60 * 1000;
 
 export default function Home() {
+  const [selectedLocale, setSelectedLocale] = useState<MenuLocale>("en-ETB");
   const [showAdminReturn, setShowAdminReturn] = useState(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
   const [menuLoadState, setMenuLoadState] = useState<"loading" | "ready" | "error">("loading");
@@ -91,6 +103,12 @@ export default function Home() {
   const [selectionExpanded, setSelectionExpanded] = useState(false);
   const [selectionButtonVisible, setSelectionButtonVisible] = useState(false);
   const selectionButtonTimer = useRef<number | null>(null);
+  const language: MenuLanguage = selectedLocale === "am-ETB" ? "am" : "en";
+  const currency: MenuCurrency = selectedLocale === "en-USD" ? "USD" : "ETB";
+
+  useEffect(() => {
+    document.documentElement.lang = language === "am" ? "am" : "en";
+  }, [language]);
 
   const showSelectionButtonForFiveMinutes = () => {
     if (selectionButtonVisible && selectionButtonTimer.current !== null) return;
@@ -268,26 +286,31 @@ export default function Home() {
     };
   }, [guestToken, selectionReady]);
 
-  const databaseItems: MenuItem[] = databaseCategories.flatMap((category) =>
-    category.items.filter((item) => item.isAvailable).map((item) => ({
-      id: item.id,
-      name: item.name,
-      category: getGuestCategoryId(category.name) ?? category.id,
-      description: item.description,
-      longDescription: item.description,
-      price: Number(item.price),
-      priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
-      image: item.imageUrl ?? "",
-      rating: 0,
-      reviewsCount: 0,
-      prepTimeMinutes: item.prepTimeMins,
-      calories: 0,
-      dietary: item.dietaryTags.filter(
-        (tag): tag is MenuItem["dietary"][number] => supportedDietaryTags.has(tag as MenuItem["dietary"][number])
+  const databaseItems = useMemo<MenuItem[]>(
+    () =>
+      databaseCategories.flatMap((category) =>
+        category.items.filter((item) => item.isAvailable).map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: getGuestCategoryId(category.name) ?? category.id,
+          description: item.description,
+          longDescription: item.description,
+          price: Number(item.price),
+          priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
+          image: item.imageUrl ?? "",
+          rating: 0,
+          reviewsCount: 0,
+          prepTimeMinutes: item.prepTimeMins,
+          calories: 0,
+          dietary: item.dietaryTags.filter(
+            (tag): tag is MenuItem["dietary"][number] =>
+              supportedDietaryTags.has(tag as MenuItem["dietary"][number])
+          ),
+          ingredients: [],
+          allergens: [],
+        }))
       ),
-      ingredients: [],
-      allergens: [],
-    }))
+    [databaseCategories]
   );
   const menuItems = databaseItems;
   const selectedLines = Object.values(guestSelections);
@@ -300,17 +323,21 @@ export default function Home() {
     (total, item) => total + item.quantity * (item.unitPriceUsd ?? 0),
     0
   );
-  const hasEtbSelection = selectedLines.some(
-    (item) => item.unitPrice > 0 || item.unitPriceUsd === null
-  );
-  const hasUsdSelection = selectedLines.some((item) => item.unitPriceUsd !== null);
+  const hasSelectedCurrencyPrice =
+    currency === "ETB" || selectedLines.every((item) => item.unitPriceUsd !== null);
+  const selectedSubtotalLabel = hasSelectedCurrencyPrice
+    ? formatMenuPrice(selectedSubtotalEtb, selectedSubtotalUsd, currency, language)
+    : getMenuCopy(
+        language,
+        currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable"
+      );
   const menuCategories = [
-    { id: "all", name: "All Dishes" },
+    { id: "all", name: getMenuCopy(language, "allDishes") },
     ...databaseCategories
       .filter((category) => category.name.trim().toLowerCase() !== "drinks")
       .map((category) => ({
         id: getGuestCategoryId(category.name) ?? category.id,
-        name: category.name,
+        name: translateMenuCategory(category.name, language),
       })),
   ];
 
@@ -337,7 +364,9 @@ export default function Home() {
       // Search match
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(query);
+        const matchesName =
+          item.name.toLowerCase().includes(query) ||
+          translateMenuItem(item.name, language).toLowerCase().includes(query);
         const matchesDesc = item.description.toLowerCase().includes(query);
         const matchesIng = item.ingredients.some((ing) => ing.toLowerCase().includes(query));
         if (!matchesName && !matchesDesc && !matchesIng) return false;
@@ -345,7 +374,7 @@ export default function Home() {
 
       return true;
     });
-  }, [activeCategory, menuItems, searchQuery]);
+  }, [activeCategory, language, menuItems, searchQuery]);
 
   const updateGuestSelection = (
     itemId: string,
@@ -404,13 +433,30 @@ export default function Home() {
       
       {/* CENTERED HEADER: NAME + TAGLINE */}
       <header className="border-b border-white/10 bg-gradient-to-b from-stone-950 to-[#0d0f12] px-4 py-8 text-center sm:py-10">
+        <div className="mx-auto mb-6 flex max-w-7xl justify-end">
+          <label className="sr-only" htmlFor="menu-locale">
+            {getMenuCopy(language, "languageAndCurrency")}
+          </label>
+          <select
+            id="menu-locale"
+            value={selectedLocale}
+            onChange={(event) => {
+              if (isMenuLocale(event.target.value)) setSelectedLocale(event.target.value);
+            }}
+            className="max-w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm font-semibold text-stone-100 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+          >
+            <option value="am-ETB">አማርኛ · ETB</option>
+            <option value="en-USD">English · USD</option>
+            <option value="en-ETB">English · ETB</option>
+          </select>
+        </div>
         {showAdminReturn && (
           <div className="mx-auto mb-4 flex max-w-3xl justify-end">
             <Link
               href="/admin"
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-stone-200 transition hover:bg-white/10 hover:text-white"
             >
-              <ArrowLeft className="h-4 w-4" /> Back to Admin
+              <ArrowLeft className="h-4 w-4" /> {getMenuCopy(language, "backToAdmin")}
             </Link>
           </div>
         )}
@@ -419,17 +465,17 @@ export default function Home() {
             <Coffee className="h-6 w-6" />
           </div>
           <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold tracking-tight text-white sm:text-5xl">
-            Classic Cafe and Restaurant
+            {getMenuCopy(language, "pageTitle")}
           </h1>
           <div className="flex items-center gap-3">
             <span className="h-px w-10 bg-amber-500/50" />
             <span className="text-sm font-bold uppercase tracking-[0.3em] text-amber-400">
-              Menu
+              {getMenuCopy(language, "menuTitle")}
             </span>
             <span className="h-px w-10 bg-amber-500/50" />
           </div>
           <p className="text-sm text-stone-300 sm:text-base">
-            Coffee, breakfast, meals & fresh juice
+            {getMenuCopy(language, "pageDescription")}
           </p>
         </div>
       </header>
@@ -445,7 +491,7 @@ export default function Home() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search coffee, breakfast, juice..."
+              placeholder={getMenuCopy(language, "searchPlaceholder")}
               className="w-full rounded-2xl border border-white/15 bg-stone-900/90 pl-10 pr-4 py-2.5 text-xs text-white placeholder-stone-400 focus:border-amber-500 focus:outline-none transition shadow-inner"
             />
             {searchQuery && (
@@ -453,7 +499,7 @@ export default function Home() {
                 onClick={() => setSearchQuery("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-white"
               >
-                Clear
+                {getMenuCopy(language, "clear")}
               </button>
             )}
           </div>
@@ -482,6 +528,7 @@ export default function Home() {
               <GuestFeedbackPopover
                 hotelId={databaseCategories[0].hotelId}
                 categories={databaseCategories}
+                language={language}
               />
             )}
           </div>
@@ -495,10 +542,13 @@ export default function Home() {
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
             <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
-              {menuCategories.find((c) => c.id === activeCategory)?.name || "All Dishes"}
+              {menuCategories.find((c) => c.id === activeCategory)?.name ||
+                getMenuCopy(language, "allDishes")}
             </h3>
             <p className="text-xs text-stone-400">
-              Showing {filteredItems.length} curated item{filteredItems.length === 1 ? "" : "s"}
+              {getMenuCopy(language, "showingItems")
+                .replace("{count}", String(filteredItems.length))
+                .replace("{plural}", filteredItems.length === 1 ? "" : "s")}
             </p>
           </div>
 
@@ -510,7 +560,7 @@ export default function Home() {
               }}
               className="text-xs font-semibold text-amber-400 hover:underline"
             >
-              Reset
+              {getMenuCopy(language, "reset")}
             </button>
           )}
         </div>
@@ -518,32 +568,34 @@ export default function Home() {
         {/* Grid */}
         {menuLoadState === "loading" ? (
           <p role="status" className="rounded-3xl border border-white/10 bg-stone-950 p-12 text-center text-sm text-stone-400">
-            Loading the menu...
+            {getMenuCopy(language, "loadingMenu")}
           </p>
         ) : menuLoadState === "error" ? (
           <div role="alert" className="rounded-3xl border border-rose-500/30 bg-stone-950 p-12 text-center space-y-3">
             <Utensils className="h-12 w-12 text-rose-300 mx-auto" />
-            <h4 className="text-lg font-bold text-white">Menu temporarily unavailable</h4>
+            <h4 className="text-lg font-bold text-white">{getMenuCopy(language, "unavailableMenu")}</h4>
             <p className="text-xs text-stone-400">
-              We could not load the restaurant menu. Please try again.
+              {getMenuCopy(language, "menuLoadError")}
             </p>
             <button
               onClick={() => window.location.reload()}
               className="mt-2 inline-flex rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
             >
-              Try again
+              {getMenuCopy(language, "tryAgain")}
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-stone-950 p-12 text-center space-y-3">
             <Utensils className="h-12 w-12 text-stone-600 mx-auto" />
             <h4 className="text-lg font-bold text-white">
-              {databaseItems.length === 0 ? "No menu items are currently available" : "No dishes match your criteria"}
+              {databaseItems.length === 0
+                ? getMenuCopy(language, "noAvailableItems")
+                : getMenuCopy(language, "noMatchingItems")}
             </h4>
             <p className="text-xs text-stone-400 max-w-sm mx-auto">
               {databaseItems.length === 0
-                ? "Please check back later."
-                : "Try changing the selected category or search keywords."}
+                ? getMenuCopy(language, "checkBackLater")
+                : getMenuCopy(language, "changeSearch")}
             </p>
             {databaseItems.length > 0 && (
               <button
@@ -553,7 +605,7 @@ export default function Home() {
                 }}
                 className="mt-2 inline-flex rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
               >
-                Show Full Menu
+                {getMenuCopy(language, "showFullMenu")}
               </button>
             )}
           </div>
@@ -585,7 +637,7 @@ export default function Home() {
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
                     {item.dietary.includes("chef-special") ? (
                       <span className="flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-950 shadow-md">
-                        <Sparkles className="h-3 w-3" /> Chef&apos;s Special
+                        <Sparkles className="h-3 w-3" /> {getMenuCopy(language, "chefSpecial")}
                       </span>
                     ) : (
                       <span />
@@ -597,6 +649,8 @@ export default function Home() {
                   <RotatingPrice
                     priceEtb={item.price}
                     priceUsd={item.priceUsd}
+                    currency={currency}
+                    language={language}
                     className="absolute bottom-3 right-3 rounded-2xl border border-amber-500/30 bg-stone-950/90 px-3.5 py-1 text-base font-extrabold text-amber-300 backdrop-blur-md"
                   />
                 </div>
@@ -611,13 +665,13 @@ export default function Home() {
                           key={tag}
                           className="rounded-md bg-stone-900 border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-stone-300"
                         >
-                          {tag}
+                          {translateDietaryTag(tag, language)}
                         </span>
                       ))}
                     </div>
 
                     <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-white group-hover:text-amber-300 transition">
-                      {item.name}
+                      {translateMenuItem(item.name, language)}
                     </h4>
 
                     {item.description && (
@@ -631,10 +685,10 @@ export default function Home() {
                   <div className="flex items-center justify-between pt-3 border-t border-white/10">
                     <div className="flex items-center gap-3 text-[11px] text-stone-400">
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5 text-amber-400" /> {item.prepTimeMinutes}m
+                        <Clock className="h-3.5 w-3.5 text-amber-400" /> {item.prepTimeMinutes} {getMenuCopy(language, "mins")}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Flame className="h-3.5 w-3.5 text-orange-400" /> {item.calories} kcal
+                        <Flame className="h-3.5 w-3.5 text-orange-400" /> {item.calories} {getMenuCopy(language, "calories")}
                       </span>
                     </div>
 
@@ -653,13 +707,16 @@ export default function Home() {
                           }
                           className="flex h-9 items-center gap-1.5 rounded-xl bg-amber-500 px-3 text-xs font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-50"
                         >
-                          <Plus className="h-4 w-4" /> Add
+                          <Plus className="h-4 w-4" /> {getMenuCopy(language, "add")}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-stone-900 px-1.5 py-1">
                           <button
                             type="button"
-                            aria-label={`Remove one ${item.name}`}
+                            aria-label={getMenuCopy(language, "removeOne").replace(
+                              "{name}",
+                              translateMenuItem(item.name, language)
+                            )}
                             onClick={() =>
                               updateGuestSelection(item.id, {
                                 name: item.name,
@@ -677,7 +734,10 @@ export default function Home() {
                           </span>
                           <button
                             type="button"
-                            aria-label={`Add one ${item.name}`}
+                            aria-label={getMenuCopy(language, "addOne").replace(
+                              "{name}",
+                              translateMenuItem(item.name, language)
+                            )}
                             onClick={() =>
                               updateGuestSelection(item.id, {
                                 name: item.name,
@@ -706,6 +766,8 @@ export default function Home() {
         item={selectedFood}
         isOpen={!!selectedFood}
         onClose={() => setSelectedFood(null)}
+        language={language}
+        currency={currency}
       />
 
       {selectedItemCount > 0 && selectionButtonVisible && (
@@ -713,13 +775,13 @@ export default function Home() {
           {selectionExpanded && (
             <section className="mb-3 max-h-[50vh] overflow-y-auto rounded-2xl border border-amber-500/30 bg-stone-950 p-4 shadow-2xl">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-bold text-white">Your selection</h2>
+                <h2 className="font-bold text-white">{getMenuCopy(language, "yourSelection")}</h2>
                 <button
                   type="button"
                   onClick={() => setSelectionExpanded(false)}
                   className="rounded-lg px-3 py-1 text-xs font-semibold text-stone-300 hover:bg-white/10"
                 >
-                  Close
+                  {getMenuCopy(language, "close")}
                 </button>
               </div>
               <div className="space-y-3">
@@ -728,21 +790,26 @@ export default function Home() {
                   return (
                     <div key={line.itemId} className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 last:border-0">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{line.name}</p>
+                        <p className="truncate text-sm font-semibold text-white">
+                          {translateMenuItem(line.name, language)}
+                        </p>
                         <p className="text-xs text-stone-400">
-                          {line.categoryName}
-                          {line.unitPrice > 0 || line.unitPriceUsd === null
-                            ? ` · ETB ${(line.unitPrice * line.quantity).toFixed(2)}`
-                            : ""}
-                          {line.unitPriceUsd !== null
-                            ? ` · $${(line.unitPriceUsd * line.quantity).toFixed(2)}`
-                            : ""}
+                          {translateMenuCategory(line.categoryName, language)}
+                          {` · ${formatMenuPrice(
+                            line.unitPrice * line.quantity,
+                            line.unitPriceUsd === null ? null : line.unitPriceUsd * line.quantity,
+                            currency,
+                            language
+                          )}`}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           type="button"
-                          aria-label={`Remove one ${line.name}`}
+                          aria-label={getMenuCopy(language, "removeOne").replace(
+                            "{name}",
+                            translateMenuItem(line.name, language)
+                          )}
                           onClick={() => updateGuestSelection(line.itemId, line, -1)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10"
                         >
@@ -751,7 +818,10 @@ export default function Home() {
                         <span className="min-w-5 text-center text-sm font-bold text-white">{line.quantity}</span>
                         <button
                           type="button"
-                          aria-label={`Add one ${line.name}`}
+                          aria-label={getMenuCopy(language, "addOne").replace(
+                            "{name}",
+                            translateMenuItem(line.name, language)
+                          )}
                           disabled={!available || line.quantity >= 99}
                           onClick={() => updateGuestSelection(line.itemId, line, 1)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
@@ -768,12 +838,15 @@ export default function Home() {
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-stone-950/95 p-3 shadow-2xl backdrop-blur-md">
             <div className="min-w-0">
               <p className="text-sm font-bold text-white">
-                {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected
-                {hasEtbSelection ? ` · ETB ${selectedSubtotalEtb.toFixed(2)}` : ""}
-                {hasUsdSelection ? ` · $${selectedSubtotalUsd.toFixed(2)}` : ""}
+                {getMenuCopy(language, "selectedItems")
+                  .replace("{count}", String(selectedItemCount))
+                  .replace("{plural}", selectedItemCount === 1 ? "" : "s")}
+                {` · ${selectedSubtotalLabel}`}
               </p>
               <p className="truncate text-xs text-stone-400">
-                {pendingSelectionWrites > 0 ? "Updating the kitchen dashboard..." : "Sent to the kitchen dashboard"}
+                {pendingSelectionWrites > 0
+                  ? getMenuCopy(language, "updatingKitchen")
+                  : getMenuCopy(language, "sentToKitchen")}
               </p>
             </div>
             <button
@@ -781,7 +854,9 @@ export default function Home() {
               onClick={() => setSelectionExpanded((expanded) => !expanded)}
               className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
             >
-              {selectionExpanded ? "Hide" : "View selection"}
+              {selectionExpanded
+                ? getMenuCopy(language, "hide")
+                : getMenuCopy(language, "viewSelection")}
             </button>
           </div>
           {selectionError && (
