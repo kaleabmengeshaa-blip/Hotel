@@ -93,6 +93,8 @@ export default function Home() {
   const selectionButtonTimer = useRef<number | null>(null);
 
   const showSelectionButtonForFiveMinutes = () => {
+    if (selectionButtonVisible && selectionButtonTimer.current !== null) return;
+
     setSelectionButtonVisible(true);
 
     if (selectionButtonTimer.current !== null) {
