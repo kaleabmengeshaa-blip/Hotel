@@ -29,18 +29,19 @@ export default function RotatingPrice({
 }: RotatingPriceProps) {
   const [showUsd, setShowUsd] = useState(false);
   const hasUsdPrice = typeof priceUsd === "number" && Number.isFinite(priceUsd);
+  const hasEtbPrice = priceEtb > 0;
 
   useEffect(() => {
-    if (!hasUsdPrice) return;
+    if (!hasUsdPrice || !hasEtbPrice) return;
 
     const intervalId = window.setInterval(() => {
       setShowUsd((visible) => !visible);
     }, 2000);
 
     return () => window.clearInterval(intervalId);
-  }, [hasUsdPrice]);
+  }, [hasEtbPrice, hasUsdPrice]);
 
-  const displayUsd = hasUsdPrice && showUsd;
+  const displayUsd = hasUsdPrice && (!hasEtbPrice || showUsd);
   const formattedPrice = displayUsd
     ? usdFormatter.format(priceUsd)
     : etbFormatter.format(priceEtb);

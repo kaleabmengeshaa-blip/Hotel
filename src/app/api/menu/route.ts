@@ -173,7 +173,7 @@ export async function POST(request: Request) {
     let name: string;
     let description: string;
     let categoryName: string;
-    let price: number;
+    let price: number | null;
     let priceUsd: number | null = null;
     let prepTimeMins: number;
     let imageUrl: string | null = null;
@@ -185,7 +185,8 @@ export async function POST(request: Request) {
       name = String(formData.get("name") ?? "").trim();
       description = String(formData.get("description") ?? "").trim();
       categoryName = String(formData.get("category") ?? "").trim();
-      price = Number(formData.get("price"));
+      const rawPrice = formData.get("price");
+      price = rawPrice === null || rawPrice === "" ? null : Number(rawPrice);
       const rawPriceUsd = formData.get("priceUsd");
       priceUsd = rawPriceUsd === null || rawPriceUsd === "" ? null : Number(rawPriceUsd);
       prepTimeMins = Number(formData.get("prepTimeMins") ?? 0);
@@ -196,7 +197,9 @@ export async function POST(request: Request) {
       name = String(body.name ?? "").trim();
       description = String(body.description ?? "").trim();
       categoryName = String(body.category ?? "").trim();
-      price = Number(body.price);
+      price = body.price === null || body.price === undefined || body.price === ""
+        ? null
+        : Number(body.price);
       priceUsd = body.priceUsd === null || body.priceUsd === undefined || body.priceUsd === ""
         ? null
         : Number(body.priceUsd);
@@ -228,9 +231,16 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!Number.isFinite(price) || price < 0 || price >= 100000000) {
+    if (price === null && priceUsd === null) {
       return NextResponse.json(
-        { error: "Enter a valid price." },
+        { error: "Enter a price in ETB or USD." },
+        { status: 400 }
+      );
+    }
+
+    if (price !== null && (!Number.isFinite(price) || price < 0 || price >= 100000000)) {
+      return NextResponse.json(
+        { error: "Enter a valid ETB price." },
         { status: 400 }
       );
     }
@@ -280,7 +290,7 @@ export async function POST(request: Request) {
         categoryId: category.id,
         name,
         description,
-        price,
+        price: price ?? 0,
         priceUsd,
         prepTimeMins,
         imageUrl,
@@ -316,7 +326,10 @@ export async function PUT(request: Request) {
     const name = String(formData?.get("name") ?? body?.name ?? "").trim();
     const description = String(formData?.get("description") ?? body?.description ?? "").trim();
     const categoryName = String(formData?.get("category") ?? body?.category ?? "").trim();
-    const rawPrice = formData?.get("price") ?? body?.price;
+    const hasPrice = formData
+      ? formData.has("price")
+      : Object.prototype.hasOwnProperty.call(body, "price");
+    const rawPrice = formData ? formData.get("price") : body?.price;
     const hasPriceUsd = formData
       ? formData.has("priceUsd")
       : Object.prototype.hasOwnProperty.call(body, "priceUsd");
@@ -345,14 +358,17 @@ export async function PUT(request: Request) {
     });
     const effectiveCategoryName = categoryName || existingCategory?.name || "General";
 
-    const price = rawPrice === undefined || rawPrice === null || rawPrice === ""
-      ? Number(existingItem.price)
-      : Number(rawPrice);
+    const etbPriceProvided = hasPrice
+      ? rawPrice !== null && rawPrice !== ""
+      : Number(existingItem.price) > 0;
+    const price = hasPrice
+      ? rawPrice === null || rawPrice === "" ? null : Number(rawPrice)
+      : Number(existingItem.price);
     const prepTimeMins = rawPrepTimeMins === undefined || rawPrepTimeMins === null || rawPrepTimeMins === ""
       ? existingItem.prepTimeMins
       : Number(rawPrepTimeMins);
-    if (!Number.isFinite(price) || price < 0 || price >= 100000000) {
-      return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
+    if (price !== null && (!Number.isFinite(price) || price < 0 || price >= 100000000)) {
+      return NextResponse.json({ error: "Enter a valid ETB price." }, { status: 400 });
     }
     let priceUsd = existingItem.priceUsd === null ? null : Number(existingItem.priceUsd);
     if (hasPriceUsd) {
@@ -362,6 +378,12 @@ export async function PUT(request: Request) {
       if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd >= 100000000)) {
         return NextResponse.json({ error: "Enter a valid USD price." }, { status: 400 });
       }
+    }
+    if ((hasPrice || hasPriceUsd) && !etbPriceProvided && priceUsd === null) {
+      return NextResponse.json(
+        { error: "Enter a price in ETB or USD." },
+        { status: 400 }
+      );
     }
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
       return NextResponse.json(
@@ -408,7 +430,7 @@ export async function PUT(request: Request) {
         categoryId: category.id,
         name: name || existingItem.name,
         description: description || existingItem.description,
-        price,
+        price: price ?? 0,
         priceUsd,
         prepTimeMins,
         imageUrl,

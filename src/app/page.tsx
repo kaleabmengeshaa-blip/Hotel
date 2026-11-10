@@ -292,10 +292,18 @@ export default function Home() {
   const menuItems = databaseItems;
   const selectedLines = Object.values(guestSelections);
   const selectedItemCount = selectedLines.reduce((total, item) => total + item.quantity, 0);
-  const selectedSubtotal = selectedLines.reduce(
+  const selectedSubtotalEtb = selectedLines.reduce(
     (total, item) => total + item.quantity * item.unitPrice,
     0
   );
+  const selectedSubtotalUsd = selectedLines.reduce(
+    (total, item) => total + item.quantity * (item.unitPriceUsd ?? 0),
+    0
+  );
+  const hasEtbSelection = selectedLines.some(
+    (item) => item.unitPrice > 0 || item.unitPriceUsd === null
+  );
+  const hasUsdSelection = selectedLines.some((item) => item.unitPriceUsd !== null);
   const menuCategories = [
     { id: "all", name: "All Dishes" },
     ...databaseCategories
@@ -721,7 +729,15 @@ export default function Home() {
                     <div key={line.itemId} className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 last:border-0">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-white">{line.name}</p>
-                        <p className="text-xs text-stone-400">{line.categoryName} · ETB {(line.unitPrice * line.quantity).toFixed(2)}</p>
+                        <p className="text-xs text-stone-400">
+                          {line.categoryName}
+                          {line.unitPrice > 0 || line.unitPriceUsd === null
+                            ? ` · ETB ${(line.unitPrice * line.quantity).toFixed(2)}`
+                            : ""}
+                          {line.unitPriceUsd !== null
+                            ? ` · $${(line.unitPriceUsd * line.quantity).toFixed(2)}`
+                            : ""}
+                        </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
@@ -752,7 +768,9 @@ export default function Home() {
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-stone-950/95 p-3 shadow-2xl backdrop-blur-md">
             <div className="min-w-0">
               <p className="text-sm font-bold text-white">
-                {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected · ETB {selectedSubtotal.toFixed(2)}
+                {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected
+                {hasEtbSelection ? ` · ETB ${selectedSubtotalEtb.toFixed(2)}` : ""}
+                {hasUsdSelection ? ` · $${selectedSubtotalUsd.toFixed(2)}` : ""}
               </p>
               <p className="truncate text-xs text-stone-400">
                 {pendingSelectionWrites > 0 ? "Updating the kitchen dashboard..." : "Sent to the kitchen dashboard"}

@@ -382,7 +382,7 @@ useEffect(() => {
       name: item.name,
       description: item.description,
       category: item.category,
-      price: String(item.price),
+      price: item.price > 0 ? String(item.price) : "",
       priceUsd: item.priceUsd === null ? "" : String(item.priceUsd),
       prepTimeMins: String(item.prepTimeMinutes),
     });
@@ -670,10 +670,18 @@ const filteredItems = databaseItems.filter((item) => {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {guestSelections.map((selection) => {
-                const total = selection.items.reduce(
+                const totalEtb = selection.items.reduce(
                   (sum, item) => sum + item.quantity * item.unitPrice,
                   0
                 );
+                const totalUsd = selection.items.reduce(
+                  (sum, item) => sum + item.quantity * (item.unitPriceUsd ?? 0),
+                  0
+                );
+                const hasEtbPrice = selection.items.some(
+                  (item) => item.unitPrice > 0 || item.unitPriceUsd === null
+                );
+                const hasUsdPrice = selection.items.some((item) => item.unitPriceUsd !== null);
                 return (
                   <article key={selection.id} className="rounded-2xl border border-amber-500/20 bg-stone-950 p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -701,13 +709,20 @@ const filteredItems = databaseItems.filter((item) => {
                             <span className="ml-2 text-xs text-stone-500">{item.categoryName}</span>
                           </span>
                           <span className="shrink-0 text-stone-400">
-                            ETB {(item.quantity * item.unitPrice).toFixed(2)}
+                            {item.unitPrice > 0 || item.unitPriceUsd === null
+                              ? `ETB ${(item.quantity * item.unitPrice).toFixed(2)}`
+                              : null}
+                            {item.unitPriceUsd !== null
+                              ? `${item.unitPrice > 0 ? " · " : ""}$${(item.quantity * item.unitPriceUsd).toFixed(2)}`
+                              : null}
                           </span>
                         </li>
                       ))}
                     </ul>
                     <p className="mt-3 border-t border-white/10 pt-3 text-right text-sm font-bold text-amber-300">
-                      Total: ETB {total.toFixed(2)}
+                      Total: {hasEtbPrice ? `ETB ${totalEtb.toFixed(2)}` : null}
+                      {hasEtbPrice && hasUsdPrice ? " · " : null}
+                      {hasUsdPrice ? `$${totalUsd.toFixed(2)}` : null}
                     </p>
                   </article>
                 );
@@ -884,7 +899,6 @@ const filteredItems = databaseItems.filter((item) => {
               <label className="text-xs font-semibold text-stone-300">
                 Price (ETB)
                 <input
-                  required
                   type="number"
                   min="0"
                   step="0.01"
@@ -893,6 +907,9 @@ const filteredItems = databaseItems.filter((item) => {
                   className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                   placeholder="0.00"
                 />
+                <span className="mt-1 block font-normal text-stone-500">
+                  ETB can be left blank when a USD price is provided.
+                </span>
               </label>
               <label className="text-xs font-semibold text-stone-300">
                 Price (USD)
@@ -906,7 +923,7 @@ const filteredItems = databaseItems.filter((item) => {
                   placeholder="Optional"
                 />
                 <span className="mt-1 block font-normal text-stone-500">
-                  Enter the USD price separately. Leave blank to show ETB only.
+                  Enter at least one price in ETB or USD.
                 </span>
               </label>
               <label className="text-xs font-semibold text-stone-300">
@@ -1033,7 +1050,7 @@ const filteredItems = databaseItems.filter((item) => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-extrabold text-amber-300">
-                          <p>ETB {item.price.toFixed(2)}</p>
+                          {item.price > 0 && <p>ETB {item.price.toFixed(2)}</p>}
                           {item.priceUsd !== null && <p className="text-xs text-stone-300">${item.priceUsd.toFixed(2)}</p>}
                         </div>
                         <div className="text-[10px] text-stone-400 mt-0.5">
