@@ -390,53 +390,49 @@ export default function Home() {
       <section className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0f12]/95 backdrop-blur-md py-4">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4">
           
-          {/* Search and feedback controls */}
-          <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search coffee, breakfast, juice..."
-                className="w-full rounded-2xl border border-white/15 bg-stone-900/90 pl-10 pr-4 py-2.5 text-xs text-white placeholder-stone-400 focus:border-amber-500 focus:outline-none transition shadow-inner"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {databaseCategories[0]?.hotelId && (
-              <div className="justify-self-end">
-                <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
-              </div>
+          {/* Search */}
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search coffee, breakfast, juice..."
+              className="w-full rounded-2xl border border-white/15 bg-stone-900/90 pl-10 pr-4 py-2.5 text-xs text-white placeholder-stone-400 focus:border-amber-500 focus:outline-none transition shadow-inner"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-white"
+              >
+                Clear
+              </button>
             )}
-
           </div>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
-            {menuCategories.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`shrink-0 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-extrabold transition ${
-                    isActive
-                      ? "border-amber-500 bg-amber-500 text-stone-950 shadow-lg shadow-amber-500/20"
-                      : "border-white/10 bg-white/5 text-amber-200 hover:border-amber-500/40 hover:text-amber-100"
-                  }`}
-                >
-                  <span>{cat.name}</span>
-                </button>
-              );
-            })}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
+              {menuCategories.map((cat) => {
+                const isActive = activeCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`shrink-0 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-extrabold transition ${
+                      isActive
+                        ? "border-amber-500 bg-amber-500 text-stone-950 shadow-lg shadow-amber-500/20"
+                        : "border-white/10 bg-white/5 text-amber-200 hover:border-amber-500/40 hover:text-amber-100"
+                    }`}
+                  >
+                    <span>{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {databaseCategories[0]?.hotelId && (
+              <GuestFeedbackPopover hotelId={databaseCategories[0].hotelId} />
+            )}
           </div>
         </div>
       </section>
