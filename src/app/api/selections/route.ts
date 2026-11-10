@@ -9,7 +9,7 @@ const noCacheHeaders = { "Cache-Control": "no-store" };
 
 // Guest selections are only useful during a visit. Anything untouched for this long
 // is deleted (items cascade) so the table does not grow forever.
-const SELECTION_RETENTION_MS = 10 * 60 * 1000;
+const SELECTION_RETENTION_MS = 5 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 let lastCleanupAt = 0;
 

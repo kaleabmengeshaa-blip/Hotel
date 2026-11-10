@@ -73,6 +73,7 @@ function getGuestCategoryId(categoryName: string): string | null {
 }
 
 const MENU_REFRESH_INTERVAL_MS = 30_000;
+const SELECTION_BUTTON_VISIBLE_MS = 5 * 60 * 1000;
 
 export default function Home() {
   const [showAdminReturn, setShowAdminReturn] = useState(false);
@@ -88,6 +89,38 @@ export default function Home() {
   const [pendingSelectionWrites, setPendingSelectionWrites] = useState(0);
   const [selectionError, setSelectionError] = useState("");
   const [selectionExpanded, setSelectionExpanded] = useState(false);
+  const [selectionButtonVisible, setSelectionButtonVisible] = useState(false);
+  const selectionButtonTimer = useRef<number | null>(null);
+
+  const showSelectionButtonForFiveMinutes = () => {
+    setSelectionButtonVisible(true);
+
+    if (selectionButtonTimer.current !== null) {
+      window.clearTimeout(selectionButtonTimer.current);
+    }
+    selectionButtonTimer.current = window.setTimeout(() => {
+      setSelectionButtonVisible(false);
+      setSelectionExpanded(false);
+      selectionButtonTimer.current = null;
+    }, SELECTION_BUTTON_VISIBLE_MS);
+  };
+
+  const hideSelectionButton = () => {
+    setSelectionButtonVisible(false);
+    setSelectionExpanded(false);
+    if (selectionButtonTimer.current !== null) {
+      window.clearTimeout(selectionButtonTimer.current);
+      selectionButtonTimer.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (selectionButtonTimer.current !== null) {
+        window.clearTimeout(selectionButtonTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -324,6 +357,11 @@ export default function Home() {
 
     guestSelectionsRef.current = updatedSelections;
     setGuestSelections(updatedSelections);
+    if (quantity > 0) {
+      showSelectionButtonForFiveMinutes();
+    } else if (Object.keys(updatedSelections).length === 0) {
+      hideSelectionButton();
+    }
     setSelectionError("");
     pendingSelectionWritesRef.current += 1;
     setPendingSelectionWrites((count) => count + 1);
@@ -660,7 +698,7 @@ export default function Home() {
         onClose={() => setSelectedFood(null)}
       />
 
-      {selectedItemCount > 0 && (
+      {selectedItemCount > 0 && selectionButtonVisible && (
         <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-2xl">
           {selectionExpanded && (
             <section className="mb-3 max-h-[50vh] overflow-y-auto rounded-2xl border border-amber-500/30 bg-stone-950 p-4 shadow-2xl">
