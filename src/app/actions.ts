@@ -34,7 +34,7 @@ export async function toggleAvailability(itemId: string): Promise<boolean> {
 
 export type Result = { ok: boolean; message: string };
 
-// Guests send a comment to the restaurant (no login needed)
+// Guests send a rating, optional comment, or both to the restaurant.
 export async function submitFeedback(
   hotelId: string,
   name: string,
@@ -45,7 +45,8 @@ export async function submitFeedback(
     const text = message.trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5)
       return { ok: false, message: 'Please choose a star rating from 1 to 5.' };
-    if (text.length < 3) return { ok: false, message: 'Please write your comment first.' };
+    if (text.length > 0 && text.length < 3)
+      return { ok: false, message: 'Please write at least 3 characters or send just your rating.' };
     if (text.length > 1000)
       return { ok: false, message: 'Your comment is too long (maximum 1000 characters).' };
 

@@ -31,6 +31,23 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
     });
   }
 
+  function handleRatingSubmit() {
+    setStatus(null);
+
+    startTransition(async () => {
+      try {
+        const result = await submitFeedback(hotelId, name, '', rating);
+        setStatus(result);
+        if (result.ok) {
+          setName('');
+          setRating(0);
+        }
+      } catch {
+        setStatus({ ok: false, message: 'Could not send your rating. Please try again.' });
+      }
+    });
+  }
+
   return (
     <>
       <button
@@ -97,6 +114,21 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
                     </button>
                   ))}
                 </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRatingSubmit}
+                    disabled={pending || rating === 0}
+                    className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {pending ? 'Sending...' : 'Send rating'}
+                  </button>
+                  {status && (
+                    <p role="status" className={`text-sm ${status.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {status.message}
+                    </p>
+                  )}
+                </div>
               </fieldset>
               <label className="block text-sm font-medium text-stone-300">
                 Your name <span className="font-normal text-stone-500">(optional)</span>
@@ -129,13 +161,8 @@ export default function GuestFeedbackPopover({ hotelId }: { hotelId: string }) {
                   disabled={pending || rating === 0 || message.trim().length < 3}
                   className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {pending ? 'Sending...' : 'Send comment'}
+                  {pending ? 'Sending...' : 'Send feedback'}
                 </button>
-                {status && (
-                  <p role="status" className={`text-sm ${status.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
-                    {status.message}
-                  </p>
-                )}
               </div>
             </form>
           </section>

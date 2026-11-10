@@ -1120,7 +1120,7 @@ const filteredItems = databaseItems.filter((item) => {
                 Guest comments
               </h2>
               <p className="text-xs text-stone-400">
-                Private messages sent from the customer menu ({feedbackItems.length})
+                Guest ratings and feedback ({feedbackItems.length})
               </p>
             </div>
             <button
@@ -1139,7 +1139,7 @@ const filteredItems = databaseItems.filter((item) => {
           {feedbackItems.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-stone-950 p-6 text-sm text-stone-400">
               <MessageSquare className="mb-2 h-5 w-5 text-stone-500" />
-              No guest comments yet.
+              No guest feedback yet.
             </div>
           ) : (
             <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-stone-950 px-4">
@@ -1163,9 +1163,11 @@ const filteredItems = databaseItems.filter((item) => {
                         {feedback.createdAt.slice(0, 10)}
                       </time>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-300">
-                      {feedback.message}
-                    </p>
+                    {feedback.message && (
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-300">
+                        {feedback.message}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
