@@ -3,6 +3,12 @@
 import { useState, useTransition, type FormEvent } from 'react';
 import { MessageSquare, Search, Star, X } from 'lucide-react';
 import { submitFeedback } from '../app/actions';
+import {
+  getMenuCopy,
+  translateMenuCategory,
+  translateMenuItem,
+  type MenuLanguage,
+} from '../lib/menu-i18n';
 
 type FeedbackCategory = {
   id: string;
@@ -13,9 +19,11 @@ type FeedbackCategory = {
 export default function GuestFeedbackPopover({
   hotelId,
   categories,
+  language,
 }: {
   hotelId: string;
   categories: FeedbackCategory[];
+  language: MenuLanguage;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
@@ -25,11 +33,13 @@ export default function GuestFeedbackPopover({
   const [itemSearch, setItemSearch] = useState('');
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const text = (key: Parameters<typeof getMenuCopy>[1]) => getMenuCopy(language, key);
   const filteredCategories = categories
     .map((category) => ({
       ...category,
       items: category.items.filter((item) =>
-        item.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
+        item.name.toLowerCase().includes(itemSearch.trim().toLowerCase()) ||
+        translateMenuItem(item.name, language).toLowerCase().includes(itemSearch.trim().toLowerCase())
       ),
     }))
     .filter((category) => category.items.length > 0);
@@ -41,7 +51,10 @@ export default function GuestFeedbackPopover({
     startTransition(async () => {
       try {
         const result = await submitFeedback(hotelId, name, message, rating, selectedItemIds);
-        setStatus(result);
+        setStatus({
+          ...result,
+          message: result.ok ? text('feedbackSuccess') : result.message,
+        });
         if (result.ok) {
           setName('');
           setMessage('');
@@ -49,7 +62,7 @@ export default function GuestFeedbackPopover({
           setSelectedItemIds([]);
         }
       } catch {
-        setStatus({ ok: false, message: 'Could not send your comment. Please try again.' });
+        setStatus({ ok: false, message: text('feedbackError') });
       }
     });
   }
@@ -60,14 +73,17 @@ export default function GuestFeedbackPopover({
     startTransition(async () => {
       try {
         const result = await submitFeedback(hotelId, name, '', rating, selectedItemIds);
-        setStatus(result);
+        setStatus({
+          ...result,
+          message: result.ok ? text('ratingSuccess') : result.message,
+        });
         if (result.ok) {
           setName('');
           setRating(0);
           setSelectedItemIds([]);
         }
       } catch {
-        setStatus({ ok: false, message: 'Could not send your rating. Please try again.' });
+        setStatus({ ok: false, message: text('ratingError') });
       }
     });
   }
@@ -83,7 +99,7 @@ export default function GuestFeedbackPopover({
         className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
       >
         <MessageSquare className="h-4 w-4" />
-        Feedback
+        {text('feedback')}
       </button>
 
       {isOpen && (
@@ -102,15 +118,15 @@ export default function GuestFeedbackPopover({
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="guest-feedback-title" className="text-lg font-bold text-white">
-                  Leave feedback
+                  {text('feedbackTitle')}
                 </h2>
                 <p className="mt-1 text-sm text-stone-400">
-                  Rate your visit and share your experience with the restaurant.
+                  {text('feedbackDescription')}
                 </p>
               </div>
               <button
                 type="button"
-                aria-label="Close comments"
+                aria-label={text('close')}
                 onClick={() => setIsOpen(false)}
                 className="rounded-lg p-1 text-stone-400 hover:bg-white/10 hover:text-white"
               >
@@ -121,10 +137,10 @@ export default function GuestFeedbackPopover({
             <form onSubmit={handleSubmit} className="space-y-4">
               <fieldset>
                 <legend className="text-sm font-medium text-stone-300">
-                  Which foods or drinks did you have?
+                  {text('foodsHad')}
                 </legend>
                 <p className="mt-1 text-xs text-stone-500">
-                  Search the menu, then open a category to select what you tried.
+                  {text('feedbackInstructions')}
                 </p>
                 <div className="relative mt-3">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
@@ -132,28 +148,30 @@ export default function GuestFeedbackPopover({
                     type="search"
                     value={itemSearch}
                     onChange={(event) => setItemSearch(event.target.value)}
-                    placeholder="Find a food or drink..."
-                    aria-label="Search foods and drinks"
+                    placeholder={text('findFood')}
+                    aria-label={text('searchFoods')}
                     className="w-full rounded-lg border border-white/10 bg-stone-900 px-9 py-2 text-sm text-white outline-none placeholder:text-stone-500 focus:border-amber-500"
                   />
                 </div>
                 <p className="mt-2 text-xs text-stone-400" aria-live="polite">
                   {selectedItemIds.length === 0
-                    ? 'No items selected'
-                    : `${selectedItemIds.length} item${selectedItemIds.length === 1 ? '' : 's'} selected`}
+                    ? text('noItemsSelected')
+                    : text('selectedItemCount')
+                        .replace('{count}', String(selectedItemIds.length))
+                        .replace('{plural}', selectedItemIds.length === 1 ? '' : 's')}
                   {selectedItemIds.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setSelectedItemIds([])}
                       className="ml-2 font-semibold text-amber-300 hover:text-amber-200"
                     >
-                      Clear
+                      {text('clear')}
                     </button>
                   )}
                 </p>
                 <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-stone-900/60">
                   {filteredCategories.length === 0 ? (
-                    <p className="p-3 text-sm text-stone-500">No matching foods or drinks.</p>
+                    <p className="p-3 text-sm text-stone-500">{text('noMatchingFoods')}</p>
                   ) : (
                     filteredCategories.map((category) => {
                       const selectedInCategory = category.items.filter((item) =>
@@ -166,11 +184,11 @@ export default function GuestFeedbackPopover({
                           className="group border-b border-white/5 last:border-0"
                         >
                           <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold text-amber-300 marker:hidden">
-                            <span>{category.name}</span>
+                            <span>{translateMenuCategory(category.name, language)}</span>
                             <span className="text-xs text-stone-500">
                               {selectedInCategory > 0
-                                ? `${selectedInCategory} selected`
-                                : `${category.items.length} items`}
+                                ? text('selectedCount').replace('{count}', String(selectedInCategory))
+                                : text('itemCount').replace('{count}', String(category.items.length))}
                             </span>
                           </summary>
                           <div className="space-y-1 px-2 pb-2">
@@ -191,7 +209,7 @@ export default function GuestFeedbackPopover({
                               }
                               className="h-4 w-4 accent-amber-500"
                             />
-                            {item.name}
+                            {translateMenuItem(item.name, language)}
                           </label>
                         ))}
                       </div>
@@ -202,13 +220,13 @@ export default function GuestFeedbackPopover({
                 </div>
               </fieldset>
               <fieldset>
-                <legend className="text-sm font-medium text-stone-300">Your rating</legend>
-                <div className="mt-2 flex gap-1" role="group" aria-label="Rate your visit from 1 to 5 stars">
+                <legend className="text-sm font-medium text-stone-300">{text('yourRating')}</legend>
+                <div className="mt-2 flex gap-1" role="group" aria-label={text('ratingStars')}>
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
                       key={value}
                       type="button"
-                      aria-label={`${value} ${value === 1 ? 'star' : 'stars'}`}
+                      aria-label={`${value} ★`}
                       aria-pressed={rating === value}
                       onClick={() => setRating(value)}
                       className="rounded-md p-1 text-amber-400 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
@@ -227,7 +245,7 @@ export default function GuestFeedbackPopover({
                     disabled={pending || rating === 0 || selectedItemIds.length === 0}
                     className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {pending ? 'Sending...' : 'Send rating'}
+                    {pending ? text('sending') : text('sendRating')}
                   </button>
                   {status && (
                     <p role="status" className={`text-sm ${status.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
@@ -237,7 +255,7 @@ export default function GuestFeedbackPopover({
                 </div>
               </fieldset>
               <label className="block text-sm font-medium text-stone-300">
-                Your name <span className="font-normal text-stone-500">(optional)</span>
+                {text('yourName')} <span className="font-normal text-stone-500">{text('optional')}</span>
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -247,7 +265,7 @@ export default function GuestFeedbackPopover({
                 />
               </label>
               <label className="block text-sm font-medium text-stone-300">
-                Your feedback
+                {text('yourFeedback')}
                 <textarea
                   required
                   minLength={3}
@@ -272,7 +290,7 @@ export default function GuestFeedbackPopover({
                   }
                   className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {pending ? 'Sending...' : 'Send feedback'}
+                  {pending ? text('sending') : text('sendFeedback')}
                 </button>
               </div>
             </form>
