@@ -245,6 +245,6 @@ export const MENU_ITEMS: MenuItem[] = [
 export const UNIVERSAL_MENU_INFO = {
   venueName: "Classic Cafe and Restaurant",
   qrCodeToken: "ALL-TABLES-UNIVERSAL-MENU",
-  qrUrl: "https://classic-cafe-and-restaurant.vercel.app",
+  qrUrl: "https://hotel-kaleab11.vercel.app",
   tagline: "One Universal QR Code for All Tables",
 };
