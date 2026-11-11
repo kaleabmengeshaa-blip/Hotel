@@ -6,18 +6,13 @@ import { ChefHat, Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
 import { loginAdmin } from './actions';
 import { getAdminCopy } from '@/lib/admin-i18n';
 import { useAdminLocale } from '@/lib/use-admin-locale';
-import AdminLanguageCurrencySelect from '@/components/AdminLanguageCurrencySelect';
 
 const initialState = { message: '' };
 
 export default function LoginForm({ authConfigured }: { authConfigured: boolean }) {
   const [state, formAction, pending] = useActionState(loginAdmin, initialState);
   const [showPassword, setShowPassword] = useState(false);
-  const {
-    locale,
-    language,
-    setLocale,
-  } = useAdminLocale();
+  const { language } = useAdminLocale();
   const t = (text: string) => getAdminCopy(text, language);
   const lockMatch = state.message.match(/^Too many failed attempts\. Please try again in (\d+) minutes?\.?$/);
   const loginMessage = lockMatch
@@ -27,17 +22,10 @@ export default function LoginForm({ authConfigured }: { authConfigured: boolean 
   return (
     <>
       <div className="mb-7">
-        <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="mb-5 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300">
             <ChefHat className="h-5 w-5" />
           </div>
-          <AdminLanguageCurrencySelect
-            locale={locale}
-            language={language}
-            enabled
-            showToggle={false}
-            onChange={setLocale}
-          />
         </div>
         <p className="text-xs font-bold uppercase tracking-widest text-amber-400">{t('Manager Portal')}</p>
         <h1 className="mt-1 text-2xl font-bold text-white">{t('Admin sign in')}</h1>
