@@ -120,6 +120,7 @@ const amharicCopy: Record<string, string> = {
   "Save dish": "ምግቡን አስቀምጥ",
   "Loading menu items...": "የምናሌ ምግቦች በመጫን ላይ...",
   "No menu items found.": "ምንም የምናሌ ምግብ አልተገኘም።",
+  "No dishes in this category.": "በዚህ ምድብ ውስጥ ምግብ የለም።",
   "mins prep": "ደቂቃ ዝግጅት",
   "In Stock": "በክምችት ውስጥ",
   "86 Sold Out": "86 ተሽጧል",

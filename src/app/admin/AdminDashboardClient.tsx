@@ -469,39 +469,38 @@ useEffect(() => {
     }
   };
 
-  const databaseItems = dbCategories.flatMap((category) =>
-    category.items.map((item) => ({
-    id: item.id,
-    name: item.name,
-    category: category.name,
-    description: item.description,
-    price: Number(item.price),
-    priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
-    image: item.imageUrl ?? "",
-    isAvailable: item.isAvailable,
-    prepTimeMinutes: item.prepTimeMins,
-    dietary: item.dietaryTags || [],
+  const searchText = searchQuery.trim().toLowerCase();
+  const visibleCategories = dbCategories
+    .filter(
+      (category) =>
+        selectedCategory === "all" ||
+        category.name.toLowerCase() === selectedCategory.toLowerCase()
+    )
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      items: category.items
+        .filter((item) => {
+          if (!searchText) return true;
+          return (
+            item.name.toLowerCase().includes(searchText) ||
+            item.description.toLowerCase().includes(searchText)
+          );
+        })
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: category.name,
+          description: item.description,
+          price: Number(item.price),
+          priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
+          image: item.imageUrl ?? "",
+          isAvailable: item.isAvailable,
+          prepTimeMinutes: item.prepTimeMins,
+          dietary: item.dietaryTags || [],
+        })),
     }))
-  );
-
-const filteredItems = databaseItems.filter((item) => {
-  if (
-    selectedCategory !== "all" &&
-    item.category.toLowerCase() !== selectedCategory.toLowerCase()
-  ) {
-    return false;
-  }
-
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    return (
-      item.name.toLowerCase().includes(q) ||
-      item.description.toLowerCase().includes(q)
-    );
-  }
-
-  return true;
-});
+    .filter((category) => (searchText ? category.items.length > 0 : true));
 
   return (
     <div className="min-h-screen bg-[#0d0f12] text-stone-100 selection:bg-amber-500 selection:text-stone-950 pb-20">
@@ -1078,13 +1077,28 @@ const filteredItems = databaseItems.filter((item) => {
             <p role="status" className="text-sm text-emerald-300">{formMessage}</p>
           )}
 
-          {/* Dishes Table / List */}
+          {/* Dishes grouped by category */}
+          {isLoadingMenu ? (
+            <p role="status" className="text-sm text-stone-400">{t("Loading menu items...")}</p>
+          ) : visibleCategories.length === 0 ? (
+            <p className="text-sm text-stone-400">{t("No menu items found.")}</p>
+          ) : (
+          <div className="space-y-8">
+            {visibleCategories.map((category) => (
+            <section key={category.id} className="space-y-4">
+              <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 pb-2">
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-white">
+                  {translateMenuCategory(category.name, language)}
+                </h3>
+                <span className="rounded-full border border-white/10 bg-stone-900 px-2.5 py-1 text-[11px] font-semibold text-stone-400">
+                  {category.items.length}
+                </span>
+              </div>
+              {category.items.length === 0 ? (
+                <p className="text-sm text-stone-500">{t("No dishes in this category.")}</p>
+              ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {isLoadingMenu ? (
-              <p role="status" className="text-sm text-stone-400">{t("Loading menu items...")}</p>
-            ) : filteredItems.length === 0 ? (
-              <p className="text-sm text-stone-400">{t("No menu items found.")}</p>
-            ) : filteredItems.map((item) => {
+            {category.items.map((item) => {
               const isAvailable = item.isAvailable;
               return (
                 <div
@@ -1187,6 +1201,11 @@ const filteredItems = databaseItems.filter((item) => {
               );
             })}
           </div>
+              )}
+            </section>
+            ))}
+          </div>
+          )}
         </section>
 
         <section className="space-y-4 border-t border-white/10 pt-8">
