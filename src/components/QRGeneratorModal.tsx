@@ -5,18 +5,22 @@ import { QrCode, X, Download, Printer, Check, Copy, Sparkles } from "lucide-reac
 import { UNIVERSAL_MENU_INFO } from "../data/menuData";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
 import { createQrDataUrl, downloadQrDataUrl } from "@/lib/qr-code";
+import { getAdminCopy } from "@/lib/admin-i18n";
+import type { MenuLanguage } from "@/lib/menu-i18n";
 
 interface QRGeneratorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  language?: MenuLanguage;
 }
 
-export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalProps) {
+export default function QRGeneratorModal({ isOpen, onClose, language = "en" }: QRGeneratorModalProps) {
   const [hotelName, setHotelName] = useState(UNIVERSAL_MENU_INFO.venueName);
   const [copied, setCopied] = useState(false);
   const [qrData, setQrData] = useState<{ url: string; dataUrl: string } | null>(null);
   const [qrError, setQrError] = useState<{ url: string; message: string } | null>(null);
   const currentOrigin = useBrowserOrigin();
+  const t = (text: string) => getAdminCopy(text, language);
 
   const encodedUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
   const qrDataUrl = qrData?.url === encodedUrl ? qrData.dataUrl : "";
@@ -64,11 +68,15 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
               <QrCode className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-[family-name:var(--font-playfair)] text-xl font-semibold">Live Deploy QR Code</h3>
-              <p className="text-xs text-stone-400">Scans directly to your live phone web app</p>
+                  <h3 className="font-[family-name:var(--font-playfair)] text-xl font-semibold">{t("Live Deploy QR Code")}</h3>
+                  <p className="text-xs text-stone-400">{t("Scans directly to your live phone web app")}</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 text-stone-400 hover:bg-white/10 hover:text-white">
+          <button
+            onClick={onClose}
+            aria-label={t("Close")}
+            className="rounded-full p-2 text-stone-400 hover:bg-white/10 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -77,13 +85,13 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
         <div className="p-6 space-y-6">
           <div>
             <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-2">
-              Hotel / Venue Title
+              {t("Hotel / Venue Title")}
             </label>
             <input
               type="text"
               value={hotelName}
               onChange={(e) => setHotelName(e.target.value)}
-              placeholder="Venue Name"
+              placeholder={t("Venue Name")}
               className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
             />
           </div>
@@ -91,14 +99,14 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
           {/* Universal QR Sticker Card */}
           <div className="relative flex flex-col items-center justify-center rounded-3xl border border-amber-500/30 bg-gradient-to-b from-stone-900 via-stone-950 to-black p-6 text-center shadow-xl">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-2">
-              <Sparkles className="h-3 w-3" /> Live Phone Scan QR Code
+              <Sparkles className="h-3 w-3" /> {t("Live Phone Scan QR Code")}
             </div>
 
             <p className="text-2xl font-bold font-[family-name:var(--font-playfair)] text-white">
               {displayHotelName}
             </p>
             <p className="text-xs text-stone-400 mt-1 mb-4">
-              Scan with phone camera to open live digital menu on your phone
+              {t("Scan with phone camera to open live digital menu on your phone")}
             </p>
 
             <div className="rounded-2xl border-4 border-amber-500/40 bg-white p-3 shadow-lg">
@@ -106,12 +114,12 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={qrDataUrl}
-                  alt="Live Menu QR Code"
+                  alt={t("Live Menu QR Code")}
                   className="h-44 w-44 rounded-lg object-contain"
                 />
               ) : (
                 <div className="flex h-44 w-44 items-center justify-center rounded-lg text-xs text-stone-500">
-                  {qrErrorMessage || "Creating QR code..."}
+                  {qrErrorMessage || t("Creating QR code...")}
                 </div>
               )}
             </div>
@@ -123,7 +131,7 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
                 className="ml-1 text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium shrink-0"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copied" : "Copy"}
+                {copied ? t("Copied") : t("Copy")}
               </button>
             </div>
           </div>
@@ -136,13 +144,13 @@ export default function QRGeneratorModal({ isOpen, onClose }: QRGeneratorModalPr
               disabled={!qrDataUrl}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-stone-950 hover:bg-amber-400 transition disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download className="h-4 w-4" /> Download Sticker
+              <Download className="h-4 w-4" /> {t("Download Sticker")}
             </button>
             <button
               onClick={() => window.print()}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/20 transition"
             >
-              <Printer className="h-4 w-4" /> Print Stickers
+              <Printer className="h-4 w-4" /> {t("Print Stickers")}
             </button>
           </div>
         </div>
