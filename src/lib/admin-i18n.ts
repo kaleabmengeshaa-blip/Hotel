@@ -2,8 +2,11 @@ import type { MenuLanguage } from "@/lib/menu-i18n";
 
 const amharicCopy: Record<string, string> = {
   "Language and currency": "ቋንቋ እና ገንዘብ",
+  "Language options": "የቋንቋ ምርጫዎች",
   "Language options: On": "የቋንቋ ምርጫዎች፡ ክፍት",
   "Language options: Off": "የቋንቋ ምርጫዎች፡ ዝግ",
+  On: "ክፍት",
+  Off: "ዝግ",
   "Could not load the language setting.": "የቋንቋ ቅንብሩን መጫን አልተቻለም።",
   "Could not update the language setting.": "የቋንቋ ቅንብሩን ማዘመን አልተቻለም።",
   Close: "ዝጋ",
