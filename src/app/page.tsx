@@ -88,6 +88,7 @@ const SELECTION_BUTTON_VISIBLE_MS = 5 * 60 * 1000;
 
 export default function Home() {
   const [selectedLocale, setSelectedLocale] = useState<MenuLocale>("en-ETB");
+  const [languageSwitcherEnabled, setLanguageSwitcherEnabled] = useState(false);
   const [showAdminReturn, setShowAdminReturn] = useState(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
   const [menuLoadState, setMenuLoadState] = useState<"loading" | "ready" | "error">("loading");
@@ -109,6 +110,48 @@ export default function Home() {
   useEffect(() => {
     document.documentElement.lang = language === "am" ? "am" : "en";
   }, [language]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLanguageSwitcherSetting = async () => {
+      try {
+        const response = await fetch("/api/menu-settings", { cache: "no-store" });
+        if (!response.ok) throw new Error("Could not load the menu language setting.");
+
+        const settings: unknown = await response.json();
+        if (
+          !settings ||
+          typeof settings !== "object" ||
+          !("languageSwitcherEnabled" in settings) ||
+          typeof settings.languageSwitcherEnabled !== "boolean"
+        ) {
+          throw new Error("The menu language setting response is invalid.");
+        }
+
+        if (!isMounted) return;
+        const enabled = settings.languageSwitcherEnabled;
+        setLanguageSwitcherEnabled(enabled);
+        if (!enabled) setSelectedLocale("en-ETB");
+      } catch (error) {
+        console.error("Could not load the guest language setting:", error);
+        if (isMounted) {
+          setLanguageSwitcherEnabled(false);
+          setSelectedLocale("en-ETB");
+        }
+      }
+    };
+
+    void loadLanguageSwitcherSetting();
+    const intervalId = window.setInterval(() => {
+      void loadLanguageSwitcherSetting();
+    }, 15_000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const showSelectionButtonForFiveMinutes = () => {
     if (selectionButtonVisible && selectionButtonTimer.current !== null) return;
@@ -433,23 +476,25 @@ export default function Home() {
       
       {/* CENTERED HEADER: NAME + TAGLINE */}
       <header className="border-b border-white/10 bg-gradient-to-b from-stone-950 to-[#0d0f12] px-4 py-8 text-center sm:py-10">
-        <div className="mx-auto mb-6 flex max-w-7xl justify-end">
-          <label className="sr-only" htmlFor="menu-locale">
-            {getMenuCopy(language, "languageAndCurrency")}
-          </label>
-          <select
-            id="menu-locale"
-            value={selectedLocale}
-            onChange={(event) => {
-              if (isMenuLocale(event.target.value)) setSelectedLocale(event.target.value);
-            }}
-            className="max-w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm font-semibold text-stone-100 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-          >
-            <option value="am-ETB">አማርኛ · ETB</option>
-            <option value="en-USD">English · USD</option>
-            <option value="en-ETB">English · ETB</option>
-          </select>
-        </div>
+        {languageSwitcherEnabled && (
+          <div className="mx-auto mb-6 flex max-w-7xl justify-end">
+            <label className="sr-only" htmlFor="menu-locale">
+              {getMenuCopy(language, "languageAndCurrency")}
+            </label>
+            <select
+              id="menu-locale"
+              value={selectedLocale}
+              onChange={(event) => {
+                if (isMenuLocale(event.target.value)) setSelectedLocale(event.target.value);
+              }}
+              className="max-w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm font-semibold text-stone-100 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+            >
+              <option value="am-ETB">አማርኛ · ETB</option>
+              <option value="en-USD">English · USD</option>
+              <option value="en-ETB">English · ETB</option>
+            </select>
+          </div>
+        )}
         {showAdminReturn && (
           <div className="mx-auto mb-4 flex max-w-3xl justify-end">
             <Link

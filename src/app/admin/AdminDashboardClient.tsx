@@ -20,6 +20,7 @@ import {
 } from "@/lib/menu-i18n";
 import { getAdminCopy } from "@/lib/admin-i18n";
 import { useAdminLocale } from "@/lib/use-admin-locale";
+import { useMenuSwitcherSetting } from "@/lib/use-menu-switcher-setting";
 import AdminLanguageCurrencySelect from "@/components/AdminLanguageCurrencySelect";
 
 import {
@@ -101,9 +102,14 @@ export default function AdminDashboardClient({
     locale,
     language,
     setLocale,
-    languageSwitcherEnabled,
-    setLanguageSwitcherEnabled,
   } = useAdminLocale();
+  const {
+    enabled: languageSwitcherEnabled,
+    isLoading: isLoadingLanguageSwitcherSetting,
+    isSaving: isSavingLanguageSwitcherSetting,
+    error: languageSwitcherSettingError,
+    setEnabled: setLanguageSwitcherEnabled,
+  } = useMenuSwitcherSetting();
   const currency: MenuCurrency = locale === "en-USD" ? "USD" : "ETB";
   const t = (text: string) => getAdminCopy(text, language);
   const hotelName = UNIVERSAL_MENU_INFO.venueName;
@@ -527,7 +533,13 @@ const filteredItems = databaseItems.filter((item) => {
               enabled={languageSwitcherEnabled}
               onChange={setLocale}
               onToggle={setLanguageSwitcherEnabled}
+              toggleDisabled={isLoadingLanguageSwitcherSetting || isSavingLanguageSwitcherSetting}
             />
+            {languageSwitcherSettingError && (
+              <p role="alert" className="max-w-48 text-xs text-rose-300">
+                {t(languageSwitcherSettingError)}
+              </p>
+            )}
             <Link
               href="/?from=admin"
               className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-200 hover:bg-white/15 hover:text-white transition"

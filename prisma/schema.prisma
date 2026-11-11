@@ -115,3 +115,9 @@ model AdminLoginAttempt {
   lockedUntil DateTime?
   @@index([windowStart])
 }
+
+model MenuSettings {
+  id                       String   @id @default("global")
+  languageSwitcherEnabled  Boolean  @default(false)
+  updatedAt                DateTime @updatedAt
+}

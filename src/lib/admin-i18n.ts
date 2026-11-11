@@ -4,6 +4,8 @@ const amharicCopy: Record<string, string> = {
   "Language and currency": "ቋንቋ እና ገንዘብ",
   "Language options: On": "የቋንቋ ምርጫዎች፡ ክፍት",
   "Language options: Off": "የቋንቋ ምርጫዎች፡ ዝግ",
+  "Could not load the language setting.": "የቋንቋ ቅንብሩን መጫን አልተቻለም።",
+  "Could not update the language setting.": "የቋንቋ ቅንብሩን ማዘመን አልተቻለም።",
   Close: "ዝጋ",
   "Admin sign in": "ወደ አስተዳደር ይግቡ",
   "Sign in to manage the restaurant menu.": "የሬስቶራንቱን ምናሌ ለማስተዳደር ይግቡ።",

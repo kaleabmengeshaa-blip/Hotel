@@ -17,8 +17,6 @@ export default function LoginForm({ authConfigured }: { authConfigured: boolean 
     locale,
     language,
     setLocale,
-    languageSwitcherEnabled,
-    setLanguageSwitcherEnabled,
   } = useAdminLocale();
   const t = (text: string) => getAdminCopy(text, language);
   const lockMatch = state.message.match(/^Too many failed attempts\. Please try again in (\d+) minutes?\.?$/);
@@ -36,9 +34,9 @@ export default function LoginForm({ authConfigured }: { authConfigured: boolean 
           <AdminLanguageCurrencySelect
             locale={locale}
             language={language}
-            enabled={languageSwitcherEnabled}
+            enabled
+            showToggle={false}
             onChange={setLocale}
-            onToggle={setLanguageSwitcherEnabled}
           />
         </div>
         <p className="text-xs font-bold uppercase tracking-widest text-amber-400">{t('Manager Portal')}</p>
