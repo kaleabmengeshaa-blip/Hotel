@@ -85,11 +85,31 @@ function getGuestCategoryId(categoryName: string): string | null {
 
 const MENU_REFRESH_INTERVAL_MS = 30_000;
 const SELECTION_BUTTON_VISIBLE_MS = 5 * 60 * 1000;
+const GUEST_LOCALE_STORAGE_KEY = "guest-menu-locale";
+
+function getSavedGuestLocale(): MenuLocale {
+  try {
+    const savedLocale = window.localStorage.getItem(GUEST_LOCALE_STORAGE_KEY);
+    return isMenuLocale(savedLocale) ? savedLocale : "en-ETB";
+  } catch (error) {
+    console.error("Could not read the saved guest language:", error);
+    return "en-ETB";
+  }
+}
+
+function clearSavedGuestLocale(): void {
+  try {
+    window.localStorage.removeItem(GUEST_LOCALE_STORAGE_KEY);
+  } catch (error) {
+    console.error("Could not clear the saved guest language:", error);
+  }
+}
 
 export default function Home() {
   const [selectedLocale, setSelectedLocale] = useState<MenuLocale>("en-ETB");
   const [languageSwitcherEnabled, setLanguageSwitcherEnabled] = useState(false);
   const [showAdminReturn, setShowAdminReturn] = useState(false);
+  const hasLoadedGuestLocale = useRef(false);
   const [databaseCategories, setDatabaseCategories] = useState<ApiMenuCategory[]>([]);
   const [menuLoadState, setMenuLoadState] = useState<"loading" | "ready" | "error">("loading");
   const menuHasLoaded = React.useRef(false);
@@ -132,12 +152,23 @@ export default function Home() {
         if (!isMounted) return;
         const enabled = settings.languageSwitcherEnabled;
         setLanguageSwitcherEnabled(enabled);
-        if (!enabled) setSelectedLocale("en-ETB");
+        if (enabled) {
+          if (!hasLoadedGuestLocale.current) {
+            setSelectedLocale(getSavedGuestLocale());
+            hasLoadedGuestLocale.current = true;
+          }
+        } else {
+          setSelectedLocale("en-ETB");
+          hasLoadedGuestLocale.current = false;
+          clearSavedGuestLocale();
+        }
       } catch (error) {
         console.error("Could not load the guest language setting:", error);
         if (isMounted) {
           setLanguageSwitcherEnabled(false);
           setSelectedLocale("en-ETB");
+          hasLoadedGuestLocale.current = false;
+          clearSavedGuestLocale();
         }
       }
     };
@@ -516,7 +547,13 @@ export default function Home() {
               id="menu-locale"
               value={selectedLocale}
               onChange={(event) => {
-                if (isMenuLocale(event.target.value)) setSelectedLocale(event.target.value);
+                if (!isMenuLocale(event.target.value)) return;
+                setSelectedLocale(event.target.value);
+                try {
+                  window.localStorage.setItem(GUEST_LOCALE_STORAGE_KEY, event.target.value);
+                } catch (error) {
+                  console.error("Could not save the selected guest language:", error);
+                }
               }}
               className="max-w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm font-semibold text-stone-100 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
             >
@@ -701,6 +738,7 @@ export default function Home() {
                       src={item.image}
                       alt={item.name}
                       fill
+                      sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(50vw - 1.5rem), (max-width: 1279px) calc(33vw - 1.5rem), 400px"
                       data-scroll-reveal
                       className="translate-y-6 object-cover opacity-0 transition-[opacity,transform] delay-100 duration-700 ease-out group-hover:scale-105"
                     />
