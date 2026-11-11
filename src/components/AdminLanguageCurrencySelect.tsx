@@ -33,7 +33,7 @@ export default function AdminLanguageCurrencySelect({
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center">
       {showToggle && onToggle && (
         <div className="relative">
           <button
@@ -55,37 +55,57 @@ export default function AdminLanguageCurrencySelect({
           {isOptionsOpen && (
             <div
               id="admin-language-options-menu"
-              role="menu"
-              aria-label={toggleLabel}
-              className="absolute right-0 z-50 mt-2 min-w-32 overflow-hidden rounded-xl border border-amber-500/30 bg-stone-950 p-1 shadow-xl"
+              className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-amber-500/30 bg-stone-950 p-2 shadow-xl"
             >
-              {([true, false] as const).map((nextEnabled) => {
-                const optionLabel = getAdminCopy(nextEnabled ? "On" : "Off", language);
-                return (
-                  <button
-                    key={optionLabel}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={enabled === nextEnabled}
-                    disabled={toggleDisabled}
-                    onClick={() => {
-                      setIsOptionsOpen(false);
-                      if (enabled !== nextEnabled) void onToggle(nextEnabled);
+              <div role="group" aria-label={toggleLabel} className="flex gap-1">
+                {([true, false] as const).map((nextEnabled) => {
+                  const optionLabel = getAdminCopy(nextEnabled ? "On" : "Off", language);
+                  return (
+                    <button
+                      key={optionLabel}
+                      type="button"
+                      aria-pressed={enabled === nextEnabled}
+                      disabled={toggleDisabled}
+                      onClick={() => {
+                        if (enabled !== nextEnabled) void onToggle(nextEnabled);
+                        if (!nextEnabled) setIsOptionsOpen(false);
+                      }}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        enabled === nextEnabled
+                          ? "bg-amber-500/15 text-amber-200"
+                          : "text-stone-300 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      {optionLabel}
+                      {enabled === nextEnabled && (
+                        <Check aria-hidden="true" className="h-3.5 w-3.5 text-amber-400" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {enabled && (
+                <label className="mt-2 block border-t border-white/10 pt-2 text-xs text-stone-300">
+                  <span className="mb-1.5 block">{label}</span>
+                  <select
+                    aria-label={label}
+                    value={locale}
+                    onChange={(event) => {
+                      if (isMenuLocale(event.target.value)) onChange(event.target.value);
                     }}
-                    className="flex w-full items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-xs font-semibold text-stone-200 transition hover:bg-amber-500/15 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-lg border border-white/15 bg-stone-900 px-3 py-2 text-xs font-semibold text-stone-100 focus:border-amber-500 focus:outline-none"
                   >
-                    {optionLabel}
-                    {enabled === nextEnabled && (
-                      <Check aria-hidden="true" className="h-3.5 w-3.5 text-amber-400" />
-                    )}
-                  </button>
-                );
-              })}
+                    <option value="am-ETB">አማርኛ · ETB</option>
+                    <option value="en-USD">English · USD</option>
+                    <option value="en-ETB">English · ETB</option>
+                  </select>
+                </label>
+              )}
             </div>
           )}
         </div>
       )}
-      {(!showToggle || enabled) && (
+      {!showToggle && enabled && (
         <label id="admin-language-currency-options" className="flex items-center text-xs text-stone-300">
           <span className="sr-only">{label}</span>
           <select
