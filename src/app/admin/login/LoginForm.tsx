@@ -13,7 +13,13 @@ const initialState = { message: '' };
 export default function LoginForm({ authConfigured }: { authConfigured: boolean }) {
   const [state, formAction, pending] = useActionState(loginAdmin, initialState);
   const [showPassword, setShowPassword] = useState(false);
-  const { locale, language, setLocale } = useAdminLocale();
+  const {
+    locale,
+    language,
+    setLocale,
+    languageSwitcherEnabled,
+    setLanguageSwitcherEnabled,
+  } = useAdminLocale();
   const t = (text: string) => getAdminCopy(text, language);
   const lockMatch = state.message.match(/^Too many failed attempts\. Please try again in (\d+) minutes?\.?$/);
   const loginMessage = lockMatch
@@ -27,7 +33,13 @@ export default function LoginForm({ authConfigured }: { authConfigured: boolean 
           <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300">
             <ChefHat className="h-5 w-5" />
           </div>
-          <AdminLanguageCurrencySelect locale={locale} language={language} onChange={setLocale} />
+          <AdminLanguageCurrencySelect
+            locale={locale}
+            language={language}
+            enabled={languageSwitcherEnabled}
+            onChange={setLocale}
+            onToggle={setLanguageSwitcherEnabled}
+          />
         </div>
         <p className="text-xs font-bold uppercase tracking-widest text-amber-400">{t('Manager Portal')}</p>
         <h1 className="mt-1 text-2xl font-bold text-white">{t('Admin sign in')}</h1>

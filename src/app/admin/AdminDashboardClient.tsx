@@ -97,7 +97,13 @@ export default function AdminDashboardClient({
   const [feedbackItems, setFeedbackItems] = useState(initialFeedback);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
-  const { locale, language, setLocale } = useAdminLocale();
+  const {
+    locale,
+    language,
+    setLocale,
+    languageSwitcherEnabled,
+    setLanguageSwitcherEnabled,
+  } = useAdminLocale();
   const currency: MenuCurrency = locale === "en-USD" ? "USD" : "ETB";
   const t = (text: string) => getAdminCopy(text, language);
   const hotelName = UNIVERSAL_MENU_INFO.venueName;
@@ -515,7 +521,13 @@ const filteredItems = databaseItems.filter((item) => {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <AdminLanguageCurrencySelect locale={locale} language={language} onChange={setLocale} />
+            <AdminLanguageCurrencySelect
+              locale={locale}
+              language={language}
+              enabled={languageSwitcherEnabled}
+              onChange={setLocale}
+              onToggle={setLanguageSwitcherEnabled}
+            />
             <Link
               href="/?from=admin"
               className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-200 hover:bg-white/15 hover:text-white transition"

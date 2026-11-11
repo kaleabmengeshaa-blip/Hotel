@@ -2,6 +2,8 @@ import type { MenuLanguage } from "@/lib/menu-i18n";
 
 const amharicCopy: Record<string, string> = {
   "Language and currency": "ቋንቋ እና ገንዘብ",
+  "Language options: On": "የቋንቋ ምርጫዎች፡ ክፍት",
+  "Language options: Off": "የቋንቋ ምርጫዎች፡ ዝግ",
   Close: "ዝጋ",
   "Admin sign in": "ወደ አስተዳደር ይግቡ",
   "Sign in to manage the restaurant menu.": "የሬስቶራንቱን ምናሌ ለማስተዳደር ይግቡ።",
