@@ -22,6 +22,12 @@ body {
   overflow-x: hidden;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  [data-scroll-reveal] {
+    transition: none;
+  }
+}
+
 html[lang="am"] body,
 html[lang="am"] h1,
 html[lang="am"] h2,

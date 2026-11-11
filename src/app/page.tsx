@@ -419,6 +419,37 @@ export default function Home() {
     });
   }, [activeCategory, language, menuItems, searchQuery]);
 
+  useEffect(() => {
+    const revealElements = document.querySelectorAll<HTMLElement>("[data-scroll-reveal]");
+    const reveal = (element: HTMLElement) => {
+      element.classList.remove("opacity-0", "translate-y-6");
+      element.classList.add("opacity-100", "translate-y-0");
+    };
+
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !("IntersectionObserver" in window)
+    ) {
+      revealElements.forEach(reveal);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries, currentObserver) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+
+          reveal(entry.target as HTMLElement);
+          currentObserver.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -24px 0px" }
+    );
+
+    revealElements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [filteredItems]);
+
   const updateGuestSelection = (
     itemId: string,
     product: GuestSelectionProduct,
@@ -659,8 +690,9 @@ export default function Home() {
             {filteredItems.map((item) => (
               <div
                 key={item.id}
+                data-scroll-reveal
                 onClick={() => setSelectedFood(item)}
-                className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-stone-950/80 transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-[0_20px_50px_rgba(212,175,55,0.12)] cursor-pointer"
+                className="group relative flex translate-y-6 flex-col overflow-hidden rounded-3xl border border-white/10 bg-stone-950/80 opacity-0 transition-[opacity,transform,border-color,box-shadow] duration-700 ease-out hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-[0_20px_50px_rgba(212,175,55,0.12)] cursor-pointer"
               >
                 {/* Food Image */}
                 <div className="relative h-52 w-full overflow-hidden bg-stone-900">
@@ -669,7 +701,8 @@ export default function Home() {
                       src={item.image}
                       alt={item.name}
                       fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      data-scroll-reveal
+                      className="translate-y-6 object-cover opacity-0 transition-[opacity,transform] delay-100 duration-700 ease-out group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center font-semibold text-stone-400">
