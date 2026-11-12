@@ -676,7 +676,7 @@ useEffect(() => {
                   <p className="text-xs text-stone-400 mt-1">
                     {isLoadingMenu
                       ? t("Loading menu...")
-                      dbCategories.reduce((total, category) => total + category.items.length, 0)
+                                          : `${dbCategories.reduce((total, category) => total + category.items.length, 0)} ${language === "am" ? "ምግቦች" : "dishes"} ${language === "am" ? "በ" : "across"} ${dbCategories.length} ${language === "am" ? "ምድቦች" : "categories"}`}
                   </p>
                 </div>
                 <div className="text-xs font-semibold text-emerald-400">
