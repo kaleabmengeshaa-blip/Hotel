@@ -119,6 +119,6 @@ model AdminLoginAttempt {
 model MenuSettings {
   id                       String   @id @default("global")
   languageSwitcherEnabled  Boolean  @default(false)
-  newestDishesFirst        Boolean  @default(false)
+  newestDishesFirst        Boolean  @default(true)
   updatedAt                DateTime @updatedAt
 }
