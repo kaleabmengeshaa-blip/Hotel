@@ -20,9 +20,9 @@ export async function GET() {
         categories: {
           include: {
             items: {
-              where: isAdmin ? undefined : { isAvailable: true },
-              orderBy: { displayOrder: "asc" },
-            },
+  where: isAdmin ? undefined : { isAvailable: true },
+  orderBy: [{ createdAt: "desc" }, { displayOrder: "asc" }],
+},
           },
           orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
         },
