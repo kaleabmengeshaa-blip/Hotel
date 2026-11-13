@@ -92,12 +92,9 @@ export default function FoodDetailModal({
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
               {translateMenuItem(item.name, language)}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-stone-300">
-              {item.longDescription}
-            </p>
           </div>
 
-          {/* Ingredients list */}
+          {/* Ingredients shown before the description */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> {getMenuCopy(language, "keyIngredients")}
@@ -120,6 +117,10 @@ export default function FoodDetailModal({
               </div>
             )}
           </div>
+
+          <p className="text-sm leading-relaxed text-stone-300">
+            {item.longDescription}
+          </p>
         </div>
       </div>
     </div>
