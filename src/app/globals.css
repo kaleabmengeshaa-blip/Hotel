@@ -35,6 +35,11 @@ body {
   }
 }
 
+/* Remove the dark fade over the bottom of the guest-menu photos. */
+main .bg-gradient-to-t.from-stone-950.via-transparent.to-transparent {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-scroll-reveal] {
     transition: none;
