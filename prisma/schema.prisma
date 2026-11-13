@@ -106,8 +106,6 @@ model GuestSelectionItem {
   @@index([selectionId])
 }
 
-// Failed admin login attempts, keyed by a hash of the client IP, used to slow down
-// password guessing. Rows are removed on successful login or when they go stale.
 model AdminLoginAttempt {
   key         String    @id
   failures    Int       @default(0)
