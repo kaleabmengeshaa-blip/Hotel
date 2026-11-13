@@ -22,6 +22,19 @@ body {
   overflow-x: hidden;
 }
 
+@media (max-width: 639px) {
+  /* Keep the guest-menu brand title compact on phone screens. */
+  main > header {
+    padding-top: 1.25rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+
+  main > header h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-scroll-reveal] {
     transition: none;
