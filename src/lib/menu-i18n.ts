@@ -9,7 +9,7 @@ const copy = {
     menuTitle: "Menu",
     pageDescription: "Coffee, breakfast, meals & fresh juice",
     backToAdmin: "Back to Admin",
-    searchPlaceholder: "Search Club Sandwich,Chocolate Cake",
+    searchPlaceholder: "Search Club Sandwich,Chocolate Cake,Macchiato",
     clear: "Clear",
     feedback: "Feedback",
     feedbackTitle: "Leave feedback",
