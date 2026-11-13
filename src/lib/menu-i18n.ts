@@ -9,7 +9,7 @@ const copy = {
     menuTitle: "Menu",
     pageDescription: "Coffee, breakfast, meals & fresh juice",
     backToAdmin: "Back to Admin",
-    searchPlaceholder: "Search Club Sandwich, Chocolate Cake, Macchiato",
+    searchPlaceholder: "Search Club Sandwich,Chocolate Cake",
     clear: "Clear",
     feedback: "Feedback",
     feedbackTitle: "Leave feedback",
@@ -112,7 +112,7 @@ const copy = {
     menuTitle: "የምግብ ዝርዝር",
     pageDescription: "ቡና፣ ቁርስ፣ ምግቦች እና ትኩስ ጭማቂ",
     backToAdmin: "ወደ አስተዳዳሪ ተመለስ",
-    searchPlaceholder: "Search Club Sandwich, Chocolate Cake, Macchiato",
+    searchPlaceholder: "ቡና፣ ቁርስ ወይም ጭማቂ ፈልግ...",
     clear: "አጽዳ",
     feedback: "አስተያየት",
     feedbackTitle: "አስተያየት ይስጡ",
@@ -236,11 +236,23 @@ export function isMenuLocale(value: string | null): value is MenuLocale {
   return value === "am-ETB" || value === "en-ETB" || value === "en-USD";
 }
 
-export function formatMenuPrice(priceEtb: number, priceUsd: number | null | undefined, currency: MenuCurrency, language: MenuLanguage): string {
+export function formatMenuPrice(
+  priceEtb: number,
+  priceUsd: number | null | undefined,
+  currency: MenuCurrency,
+  language: MenuLanguage
+): string {
   const amount = currency === "USD" ? priceUsd : priceEtb;
   if (typeof amount !== "number" || !Number.isFinite(amount)) {
-    return getMenuCopy(language, currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable");
+    return getMenuCopy(
+      language,
+      currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable"
+    );
   }
   const locale = language === "am" ? "am-ET" : currency === "USD" ? "en-US" : "en-ET";
-  return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 2 }).format(amount);
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
 }
