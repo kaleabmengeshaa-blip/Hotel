@@ -9,7 +9,7 @@ const copy = {
     menuTitle: "Menu",
     pageDescription: "Coffee, breakfast, meals & fresh juice",
     backToAdmin: "Back to Admin",
-    searchPlaceholder: "Search coffee, breakfast, juice...",
+    searchPlaceholder: "Club sandwich, chocolate cake, macchiato...",
     clear: "Clear",
     feedback: "Feedback",
     feedbackTitle: "Leave feedback",
@@ -112,7 +112,7 @@ const copy = {
     menuTitle: "የምግብ ዝርዝር",
     pageDescription: "ቡና፣ ቁርስ፣ ምግቦች እና ትኩስ ጭማቂ",
     backToAdmin: "ወደ አስተዳዳሪ ተመለስ",
-    searchPlaceholder: "ቡና፣ ቁርስ ወይም ጭማቂ ፈልግ...",
+    searchPlaceholder: "ክለብ ሳንድዊች፣ ቸኮሌት ኬክ፣ ማኪያቶ...",
     clear: "አጽዳ",
     feedback: "አስተያየት",
     feedbackTitle: "አስተያየት ይስጡ",
@@ -211,10 +211,7 @@ const copy = {
   },
 } as const;
 
-export type MenuCopyKey = Exclude<
-  keyof typeof copy.en,
-  "dietaryTags" | "categories" | "itemNames"
->;
+export type MenuCopyKey = Exclude<keyof typeof copy.en, "dietaryTags" | "categories" | "itemNames">;
 
 export function getMenuCopy(language: MenuLanguage, key: MenuCopyKey): string {
   return copy[language][key];
@@ -232,33 +229,18 @@ export function translateMenuItem(name: string, language: MenuLanguage): string 
 
 export function translateDietaryTag(tag: string, language: MenuLanguage): string {
   const normalizedTag = tag.trim().toLowerCase();
-  return (
-    copy[language].dietaryTags[normalizedTag as keyof typeof copy.en.dietaryTags] ?? tag
-  );
+  return copy[language].dietaryTags[normalizedTag as keyof typeof copy.en.dietaryTags] ?? tag;
 }
 
 export function isMenuLocale(value: string | null): value is MenuLocale {
   return value === "am-ETB" || value === "en-ETB" || value === "en-USD";
 }
 
-export function formatMenuPrice(
-  priceEtb: number,
-  priceUsd: number | null | undefined,
-  currency: MenuCurrency,
-  language: MenuLanguage
-): string {
+export function formatMenuPrice(priceEtb: number, priceUsd: number | null | undefined, currency: MenuCurrency, language: MenuLanguage): string {
   const amount = currency === "USD" ? priceUsd : priceEtb;
   if (typeof amount !== "number" || !Number.isFinite(amount)) {
-    return getMenuCopy(
-      language,
-      currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable"
-    );
+    return getMenuCopy(language, currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable");
   }
-
   const locale = language === "am" ? "am-ET" : currency === "USD" ? "en-US" : "en-ET";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
+  return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 2 }).format(amount);
 }
