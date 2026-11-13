@@ -4,7 +4,7 @@ import React from "react";
 import Image from "next/image";
 import { MenuItem } from "../data/menuData";
 import RotatingPrice from "./RotatingPrice";
-import { X, Star, Clock, Flame, AlertCircle, Sparkles } from "lucide-react";
+import { X, Clock, Flame, AlertCircle, Sparkles } from "lucide-react";
 import {
   getMenuCopy,
   translateDietaryTag,
@@ -57,7 +57,7 @@ export default function FoodDetailModal({
           <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-bold text-stone-950 backdrop-blur-md">
-                <Star className="h-3.5 w-3.5 fill-stone-950" /> {item.rating} ({item.reviewsCount})
+                {item.rating} ({item.reviewsCount})
               </span>
               <span className="flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-stone-200 border border-white/10 backdrop-blur-md">
                 <Clock className="h-3.5 w-3.5 text-amber-400" /> {item.prepTimeMinutes} {getMenuCopy(language, "mins")}
