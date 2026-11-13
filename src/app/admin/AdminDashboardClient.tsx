@@ -1,1266 +1,237 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { deleteFeedback, toggleAvailability as saveAvailability } from "../actions";
 import { logoutAdmin } from "./login/actions";
 import { UNIVERSAL_MENU_INFO } from "../../data/menuData";
 import QRGeneratorModal from "../../components/QRGeneratorModal";
+import AdminLanguageCurrencySelect from "@/components/AdminLanguageCurrencySelect";
 import { useBrowserOrigin } from "@/lib/use-browser-origin";
 import { createQrDataUrl, downloadQrDataUrl } from "@/lib/qr-code";
 import { requiresMenuItemDescription } from "@/lib/menu-validation";
-import {
-  formatMenuPrice,
-  getMenuCopy,
-  translateDietaryTag,
-  translateMenuCategory,
-  translateMenuItem,
-  type MenuCurrency,
-} from "@/lib/menu-i18n";
+import { formatMenuPrice, getMenuCopy, translateDietaryTag, translateMenuCategory, translateMenuItem, type MenuCurrency } from "@/lib/menu-i18n";
 import { getAdminCopy } from "@/lib/admin-i18n";
 import { useAdminLocale } from "@/lib/use-admin-locale";
 import { useMenuSwitcherSetting } from "@/lib/use-menu-switcher-setting";
-import AdminLanguageCurrencySelect from "@/components/AdminLanguageCurrencySelect";
+import { Smartphone, Download, Printer, Wand2, CheckCircle2, Copy, Check, Utensils, ExternalLink, ChefHat, CheckCircle, XCircle, ArrowLeft, Search, Plus, MessageSquare, Star, RefreshCw, Trash2, LogOut } from "lucide-react";
 
-import {
-  Smartphone,
-  Download,
-  Printer,
-  Wand2,
-  CheckCircle2,
-  Copy,
-  Check,
-  Utensils,
-  ExternalLink,
-  ChefHat,
-  CheckCircle,
-  XCircle,
-  Sparkles,
-  ArrowLeft,
-  Search,
-  Plus,
-  MessageSquare,
-  Star,
-  RefreshCw,
-  Trash2,
-  LogOut,
-} from "lucide-react";
-
-type AdminFeedback = {
-  id: string;
-  name: string | null;
-  message: string;
-  rating: number | null;
-  createdAt: string;
-};
-
-type AdminMenuItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number | string;
-  priceUsd: number | string | null;
-  imageUrl: string | null;
-  prepTimeMins: number;
-  isAvailable: boolean;
-  dietaryTags: string[];
-};
-
-type AdminMenuCategory = {
-  id: string;
-  hotelId: string;
-  name: string;
-  items: AdminMenuItem[];
-};
-
+type AdminFeedback = { id: string; name: string | null; message: string; rating: number | null; createdAt: string };
+type AdminMenuItem = { id: string; name: string; description: string; price: number | string; priceUsd: number | string | null; imageUrl: string | null; prepTimeMins: number; isAvailable: boolean; dietaryTags: string[] };
+type AdminMenuCategory = { id: string; hotelId: string; name: string; items: AdminMenuItem[] };
+type AdminGuestSelection = { id: string; guestLabel: string; updatedAt: string; items: { itemId: string; name: string; categoryName: string; quantity: number; unitPrice: number; unitPriceUsd: number | null }[] };
+type FormItem = { id: string; name: string; description: string; category: string; price: number; priceUsd: number | null; prepTimeMinutes: number };
 const drinkCategoryOptions = ["Hot Drinks", "Soft Drinks", "Cold Drinks"];
+const emptyItem = { name: "", description: "", category: "", price: "", priceUsd: "", prepTimeMins: "15" };
 
-type AdminGuestSelection = {
-  id: string;
-  guestLabel: string;
-  updatedAt: string;
-  items: {
-    itemId: string;
-    name: string;
-    categoryName: string;
-    quantity: number;
-    unitPrice: number;
-    unitPriceUsd: number | null;
-  }[];
-};
-
-export default function AdminDashboardClient({
-  initialFeedback,
-}: {
-  initialFeedback: AdminFeedback[];
-}) {
+export default function AdminDashboardClient({ initialFeedback }: { initialFeedback: AdminFeedback[] }) {
   const [feedbackItems, setFeedbackItems] = useState(initialFeedback);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null);
   const { locale, language, setLocale } = useAdminLocale();
-  const {
-    enabled: languageSwitcherEnabled,
-    isLoading: isLoadingLanguageSwitcherSetting,
-    isSaving: isSavingLanguageSwitcherSetting,
-    error: languageSwitcherSettingError,
-    setEnabled: setLanguageSwitcherEnabled,
-  } = useMenuSwitcherSetting();
-
+  const { enabled: languageSwitcherEnabled, isLoading: isLoadingSwitcher, isSaving: isSavingSwitcher, error: switcherError, setEnabled: setLanguageSwitcherEnabled } = useMenuSwitcherSetting();
   const currency: MenuCurrency = locale === "en-USD" ? "USD" : "ETB";
   const t = (text: string) => getAdminCopy(text, language);
-  const hotelName = UNIVERSAL_MENU_INFO.venueName;
-  const currentOrigin = useBrowserOrigin();
-  const liveUrl = currentOrigin || UNIVERSAL_MENU_INFO.qrUrl;
-
+  const liveUrl = useBrowserOrigin() || UNIVERSAL_MENU_INFO.qrUrl;
+  const [qr, setQr] = useState<{ url: string; dataUrl: string } | null>(null);
+  const [qrError, setQrError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
-  const [qrData, setQrData] = useState<{ url: string; dataUrl: string } | null>(null);
-  const [qrError, setQrError] = useState<{ url: string; message: string } | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [newItem, setNewItem] = useState({
-    name: "",
-    description: "",
-    category: "",
-    price: "",
-    priceUsd: "",
-    prepTimeMins: "15",
-  });
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formMessage, setFormMessage] = useState("");
-  const [dbCategories, setDbCategories] = useState<AdminMenuCategory[]>([]);
-  const [isLoadingMenu, setIsLoadingMenu] = useState(true);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [categoryMessage, setCategoryMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [isSavingCategory, setIsSavingCategory] = useState(false);
-  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
-  const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
-  const [availabilitySavingId, setAvailabilitySavingId] = useState<string | null>(null);
-  const [guestSelections, setGuestSelections] = useState<AdminGuestSelection[]>([]);
-  const [isLoadingSelections, setIsLoadingSelections] = useState(true);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [categories, setCategories] = useState<AdminMenuCategory[]>([]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [selections, setSelections] = useState<AdminGuestSelection[]>([]);
+  const [loadingSelections, setLoadingSelections] = useState(true);
   const [selectionError, setSelectionError] = useState("");
-  const [clearingSelectionId, setClearingSelectionId] = useState<string | null>(null);
+  const [clearingId, setClearingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showDishForm, setShowDishForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [itemForm, setItemForm] = useState(emptyItem);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [savingDish, setSavingDish] = useState(false);
+  const [formMessage, setFormMessage] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryMessage, setCategoryMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [availabilitySavingId, setAvailabilitySavingId] = useState<string | null>(null);
 
-  const qrDataUrl = qrData?.url === liveUrl ? qrData.dataUrl : "";
-  const qrErrorMessage = qrError?.url === liveUrl ? qrError.message : "";
-  const menuCategoryOptions = Array.from(
-    new Set([...drinkCategoryOptions, ...dbCategories.map((category) => category.name)])
-  ).filter((categoryName) => categoryName.trim().toLowerCase() !== "drinks");
-
-  const menuItemCount = dbCategories.reduce((total, category) => total + category.items.length, 0);
-  const menuSummaryText =
-    isLoadingMenu
-      ? t("Loading menu...")
-      : `${menuItemCount} ${language === "am" ? "ምግቦች" : "dishes"} ${language === "am" ? "በ" : "across"} ${dbCategories.length} ${language === "am" ? "ምድቦች" : "categories"}`;
+  const refreshMenu = async () => {
+    const response = await fetch("/api/menu", { cache: "no-store" });
+    if (!response.ok) throw new Error(t("Could not refresh the menu."));
+    setCategories(await response.json() as AdminMenuCategory[]);
+  };
+  const categoryOptions = Array.from(new Set([...drinkCategoryOptions, ...categories.map((category) => category.name)])).filter((name) => name.trim().toLowerCase() !== "drinks");
 
   useEffect(() => {
-    let isMounted = true;
-    void createQrDataUrl(liveUrl, 260)
-      .then((dataUrl) => {
-        if (isMounted) setQrData({ url: liveUrl, dataUrl });
-      })
-      .catch((error: unknown) => {
-        console.error("Could not create the menu QR code:", error);
-        if (isMounted) {
-          setQrError({ url: liveUrl, message: "Could not create the QR code. Please try again." });
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    let mounted = true;
+    void createQrDataUrl(liveUrl, 260).then((dataUrl) => { if (mounted) { setQr({ url: liveUrl, dataUrl }); setQrError(""); } }).catch((error: unknown) => { console.error("Could not create the menu QR code:", error); if (mounted) setQrError("Could not create the QR code. Please try again."); });
+    return () => { mounted = false; };
   }, [liveUrl]);
 
   useEffect(() => {
-    fetch("/api/menu")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load menu");
-        return res.json();
-      })
-      .then((data: AdminMenuCategory[]) => {
-        setDbCategories(data);
-      })
-      .catch((error) => {
-        console.error("Could not load menu:", error);
-      })
-      .finally(() => {
-        setIsLoadingMenu(false);
-      });
+    let mounted = true;
+    void fetch("/api/menu", { cache: "no-store" }).then((response) => { if (!response.ok) throw new Error("Failed to load menu"); return response.json(); }).then((data: AdminMenuCategory[]) => { if (mounted) setCategories(data); }).catch((error) => console.error("Could not load menu:", error)).finally(() => { if (mounted) setLoadingMenu(false); });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    let isLoading = false;
-
-    const loadSelections = async () => {
-      if (isLoading) return;
-      isLoading = true;
+    let mounted = true;
+    let loading = false;
+    const load = async () => {
+      if (loading) return;
+      loading = true;
       try {
         const response = await fetch("/api/selections", { cache: "no-store" });
         const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || "Could not load guest selections.");
-        }
-        if (!Array.isArray(result)) {
-          throw new Error("The guest selections response is invalid.");
-        }
-        if (isMounted) {
-          setGuestSelections(result as AdminGuestSelection[]);
-          setSelectionError("");
-        }
+        if (!response.ok) throw new Error(result.error || "Could not load guest selections.");
+        if (!Array.isArray(result)) throw new Error("The guest selections response is invalid.");
+        if (mounted) { setSelections(result as AdminGuestSelection[]); setSelectionError(""); }
       } catch (error) {
-        console.error("Could not load guest selections:", error);
-        if (isMounted) {
-          setSelectionError(error instanceof Error ? error.message : "Could not load the guest selections.");
-        }
-      } finally {
-        isLoading = false;
-        if (isMounted) setIsLoadingSelections(false);
-      }
+        if (mounted) setSelectionError(error instanceof Error ? error.message : "Could not load the guest selections.");
+      } finally { loading = false; if (mounted) setLoadingSelections(false); }
     };
-
-    const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") void loadSelections();
-    };
-
-    void loadSelections();
-    const refreshTimer = window.setInterval(refreshIfVisible, 5000);
-    document.addEventListener("visibilitychange", refreshIfVisible);
-    return () => {
-      isMounted = false;
-      window.clearInterval(refreshTimer);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
-    };
+    const refreshVisible = () => { if (document.visibilityState === "visible") void load(); };
+    void load();
+    const timer = window.setInterval(refreshVisible, 5000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => { mounted = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshVisible); };
   }, []);
 
-  const handleSaveDish = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSaving(true);
-    setFormMessage("");
-
+  const saveDish = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setSavingDish(true); setFormMessage("");
     try {
-      const formData = new FormData();
-      if (editingItemId) formData.set("id", editingItemId);
-      formData.set("name", newItem.name);
-      formData.set("description", newItem.description);
-      formData.set("category", newItem.category);
-      formData.set("price", newItem.price);
-      formData.set("priceUsd", newItem.priceUsd);
-      formData.set("prepTimeMins", String(Number(newItem.prepTimeMins)));
-      if (selectedPhoto) {
-        formData.set("photo", selectedPhoto);
-      }
-
-      const response = await fetch("/api/menu", {
-        method: editingItemId ? "PUT" : "POST",
-        body: formData,
-      });
+      const data = new FormData();
+      if (editingId) data.set("id", editingId);
+      data.set("name", itemForm.name); data.set("description", itemForm.description); data.set("category", itemForm.category);
+      data.set("price", itemForm.price); data.set("priceUsd", itemForm.priceUsd); data.set("prepTimeMins", String(Number(itemForm.prepTimeMins)));
+      if (photo) data.set("photo", photo);
+      const response = await fetch("/api/menu", { method: editingId ? "PUT" : "POST", body: data });
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(t(result.error || "Could not save the dish."));
-      }
-
-      setNewItem({ name: "", description: "", category: "", price: "", priceUsd: "", prepTimeMins: "15" });
-      setSelectedPhoto(null);
-      setEditingItemId(null);
-      setShowAddForm(false);
-      setFormMessage(
-        t(editingItemId ? '"{name}" was updated.' : '"{name}" was added to the menu.')
-          .replace("{name}", result.name)
-      );
-
-      const menuResponse = await fetch("/api/menu");
-      if (menuResponse.ok) setDbCategories(await menuResponse.json());
-    } catch (error) {
-      setFormMessage(error instanceof Error ? t(error.message) : t("Could not save the dish."));
-    } finally {
-      setIsSaving(false);
-    }
+      if (!response.ok) throw new Error(t(result.error || "Could not save the dish."));
+      setItemForm(emptyItem); setPhoto(null); setEditingId(null); setShowDishForm(false);
+      setFormMessage(t(editingId ? '"{name}" was updated.' : '"{name}" was added to the menu.').replace("{name}", result.name));
+      await refreshMenu();
+    } catch (error) { setFormMessage(error instanceof Error ? t(error.message) : t("Could not save the dish.")); }
+    finally { setSavingDish(false); }
   };
 
-  const handleDeleteDish = async (itemId: string) => {
-    const itemName = dbCategories.flatMap((category) => category.items).find((item) => item.id === itemId)?.name ?? "this dish";
-
-    if (!window.confirm(t("Delete {item}?").replace("{item}", itemName))) {
-      return;
-    }
-
+  const deleteDish = async (id: string) => {
+    const name = categories.flatMap((category) => category.items).find((item) => item.id === id)?.name ?? "this dish";
+    if (!window.confirm(t("Delete {item}?").replace("{item}", name))) return;
     try {
-      const response = await fetch("/api/menu", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: itemId }),
-      });
+      const response = await fetch("/api/menu", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(t(result.error || "Could not delete the dish."));
-      }
-
-      const menuResponse = await fetch("/api/menu");
-      if (menuResponse.ok) {
-        setDbCategories(await menuResponse.json());
-      }
-      setFormMessage(t('"{name}" was deleted.').replace("{name}", itemName));
-    } catch (error) {
-      setFormMessage(error instanceof Error ? t(error.message) : t("Could not delete the dish."));
-    }
+      if (!response.ok) throw new Error(t(result.error || "Could not delete the dish."));
+      await refreshMenu(); setFormMessage(t('"{name}" was deleted.').replace("{name}", name));
+    } catch (error) { setFormMessage(error instanceof Error ? t(error.message) : t("Could not delete the dish.")); }
   };
 
-  const handleAddCategory = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSavingCategory(true);
-    setCategoryMessage(null);
-
+  const addCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setSavingCategory(true); setCategoryMessage(null);
     try {
-      const response = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategoryName }),
-      });
+      const response = await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: categoryName }) });
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(t(result.error || "Could not add the category."));
-      }
-
-      setDbCategories((categories) => [...categories, result.category as AdminMenuCategory]);
-      setNewCategoryName("");
-      setShowAddCategoryForm(false);
-      setCategoryMessage({
-        ok: true,
-        text: t("Category \"{name}\" was added.").replace("{name}", result.category.name),
-      });
-    } catch (error) {
-      setCategoryMessage({
-        ok: false,
-        text: error instanceof Error ? t(error.message) : t("Could not add the category."),
-      });
-    } finally {
-      setIsSavingCategory(false);
-    }
+      if (!response.ok) throw new Error(t(result.error || "Could not add the category."));
+      setCategories((current) => [...current, result.category as AdminMenuCategory]); setCategoryName(""); setShowCategoryForm(false);
+      setCategoryMessage({ ok: true, text: t('Category "{name}" was added.').replace("{name}", result.category.name) });
+    } catch (error) { setCategoryMessage({ ok: false, text: error instanceof Error ? t(error.message) : t("Could not add the category.") }); }
+    finally { setSavingCategory(false); }
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    const category = dbCategories.find((item) => item.id === categoryId);
-    if (!category) return;
-
-    const dishWarning =
-      category.items.length > 0
-        ? t(" This will also permanently delete {count} dish{plural}.")
-            .replace("{count}", String(category.items.length))
-            .replace("{plural}", category.items.length === 1 ? "" : "es")
-        : "";
-
-    if (!window.confirm(`${t('Delete category "{category}"?').replace("{category}", category.name)}${dishWarning}${t(" This cannot be undone.")}`)) {
-      return;
-    }
-
-    setDeletingCategoryId(categoryId);
-    setCategoryMessage(null);
+  const deleteCategory = async (id: string) => {
+    const category = categories.find((entry) => entry.id === id);
+    if (!category || !window.confirm(t('Delete category "{category}"?').replace("{category}", category.name) + (category.items.length ? ` ${category.items.length} dishes will also be deleted.` : ""))) return;
+    setDeletingCategoryId(id); setCategoryMessage(null);
     try {
-      const response = await fetch("/api/menu", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId }),
-      });
+      const response = await fetch("/api/menu", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoryId: id }) });
       const result = await response.json();
-      if (!response.ok) {
-        throw new Error(t(result.error || "Could not delete the category."));
-      }
-
-      setDbCategories((categories) => categories.filter((item) => item.id !== categoryId));
+      if (!response.ok) throw new Error(t(result.error || "Could not delete the category."));
+      setCategories((current) => current.filter((entry) => entry.id !== id));
       if (selectedCategory === category.name) setSelectedCategory("all");
-      setCategoryMessage({
-        ok: true,
-        text: t("Category \"{name}\" and its dishes were deleted.").replace("{name}", category.name),
-      });
-    } catch (error) {
-      setCategoryMessage({
-        ok: false,
-        text: error instanceof Error ? t(error.message) : t("Could not delete the category."),
-      });
-    } finally {
-      setDeletingCategoryId(null);
-    }
+      setCategoryMessage({ ok: true, text: t('Category "{name}" and its dishes were deleted.').replace("{name}", category.name) });
+    } catch (error) { setCategoryMessage({ ok: false, text: error instanceof Error ? t(error.message) : t("Could not delete the category.") }); }
+    finally { setDeletingCategoryId(null); }
   };
 
-  const handleClearSelection = async (selectionId: string) => {
-    setClearingSelectionId(selectionId);
-    setSelectionError("");
-    try {
-      const response = await fetch("/api/selections", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectionId }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(t(result.error || "Could not clear the guest selection."));
-      }
-      setGuestSelections((selections) => selections.filter((selection) => selection.id !== selectionId));
-    } catch (error) {
-      console.error("Could not clear guest selection:", error);
-      setSelectionError(error instanceof Error ? t(error.message) : t("Could not clear the guest selection."));
-    } finally {
-      setClearingSelectionId(null);
-    }
+  const editDish = (item: FormItem) => {
+    setEditingId(item.id); setItemForm({ name: item.name, description: item.description, category: item.category, price: item.price > 0 ? String(item.price) : "", priceUsd: item.priceUsd === null ? "" : String(item.priceUsd), prepTimeMins: String(item.prepTimeMinutes) });
+    setPhoto(null); setShowDishForm(true); setFormMessage("");
   };
 
-  const startEditingItem = (item: {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    price: number;
-    priceUsd: number | null;
-    prepTimeMinutes: number;
-  }) => {
-    setEditingItemId(item.id);
-    setNewItem({
-      name: item.name,
-      description: item.description,
-      category: item.category,
-      price: item.price > 0 ? String(item.price) : "",
-      priceUsd: item.priceUsd === null ? "" : String(item.priceUsd),
-      prepTimeMins: String(item.prepTimeMinutes),
-    });
-    setSelectedPhoto(null);
-    setShowAddForm(true);
-    setFormMessage("");
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(liveUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const toggleItemAvailability = async (id: string) => {
-    const item = dbCategories
-      .flatMap((category) => category.items)
-      .find((menuItem) => menuItem.id === id);
+  const toggleAvailability = async (id: string) => {
+    const item = categories.flatMap((category) => category.items).find((entry) => entry.id === id);
     if (!item) return;
-
     setAvailabilitySavingId(id);
-    setFormMessage("");
-    try {
-      const isAvailable = await saveAvailability(id);
-      const response = await fetch("/api/menu", { cache: "no-store" });
-      if (!response.ok) throw new Error(t("Could not refresh the menu."));
-      setDbCategories(await response.json());
-      setFormMessage(`${t(isAvailable ? '"{name}" restocked' : '"{name}" marked sold out').replace("{name}", item.name)}.`);
-    } catch (error) {
-      setFormMessage(error instanceof Error ? t(error.message) : t("Could not update availability."));
-    } finally {
-      setAvailabilitySavingId(null);
-    }
+    try { await saveAvailability(id); await refreshMenu(); }
+    catch (error) { setFormMessage(error instanceof Error ? t(error.message) : t("Could not update availability.")); }
+    finally { setAvailabilitySavingId(null); }
   };
 
-  const handleDeleteFeedback = async (feedbackId: string) => {
-    setDeletingFeedbackId(feedbackId);
-    setFeedbackMessage("");
+  const clearSelection = async (id: string) => {
+    setClearingId(id); setSelectionError("");
     try {
-      const result = await deleteFeedback(feedbackId);
-      setFeedbackMessage(t(result.message));
-      if (result.ok) {
-        setFeedbackItems((items) => items.filter((item) => item.id !== feedbackId));
-      }
-    } catch (error) {
-      console.error("Could not delete guest comment:", error);
-      setFeedbackMessage(t("Could not delete the comment. Please try again."));
-    } finally {
-      setDeletingFeedbackId(null);
-    }
+      const response = await fetch("/api/selections", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || "Could not clear the guest selection.");
+      setSelections((current) => current.filter((selection) => selection.id !== id));
+    } catch (error) { setSelectionError(error instanceof Error ? t(error.message) : t("Could not clear the guest selection.")); }
+    finally { setClearingId(null); }
   };
 
-  const searchText = searchQuery.trim().toLowerCase();
-  const visibleCategories = dbCategories
-    .filter(
-      (category) =>
-        selectedCategory === "all" ||
-        category.name.toLowerCase() === selectedCategory.toLowerCase()
-    )
-    .map((category) => ({
-      id: category.id,
-      name: category.name,
-      items: category.items
-        .filter((item) => {
-          if (!searchText) return true;
-          return (
-            item.name.toLowerCase().includes(searchText) ||
-            item.description.toLowerCase().includes(searchText)
-          );
-        })
-        .map((item) => ({
-          id: item.id,
-          name: item.name,
-          category: category.name,
-          description: item.description,
-          price: Number(item.price),
-          priceUsd: item.priceUsd === null ? null : Number(item.priceUsd),
-          image: item.imageUrl ?? "",
-          isAvailable: item.isAvailable,
-          prepTimeMinutes: item.prepTimeMins,
-          dietary: item.dietaryTags || [],
-        })),
-    }))
-    .filter((category) => (searchText ? category.items.length > 0 : true));
+  const removeFeedback = async (id: string) => {
+    setDeletingFeedbackId(id); setFeedbackMessage("");
+    try { const result = await deleteFeedback(id); setFeedbackMessage(t(result.message)); if (result.ok) setFeedbackItems((current) => current.filter((item) => item.id !== id)); }
+    catch (error) { console.error("Could not delete guest comment:", error); setFeedbackMessage(t("Could not delete the comment. Please try again.")); }
+    finally { setDeletingFeedbackId(null); }
+  };
+
+  const search = query.trim().toLowerCase();
+  const visibleCategories = categories.filter((category) => selectedCategory === "all" || category.name.toLowerCase() === selectedCategory.toLowerCase()).map((category) => ({
+    ...category,
+    items: category.items.filter((item) => !search || item.name.toLowerCase().includes(search) || item.description.toLowerCase().includes(search)).map((item) => ({
+      id: item.id, name: item.name, category: category.name, description: item.description, price: Number(item.price), priceUsd: item.priceUsd === null ? null : Number(item.priceUsd), image: item.imageUrl ?? "", isAvailable: item.isAvailable, prepTimeMinutes: item.prepTimeMins, dietary: item.dietaryTags || [],
+    })),
+  })).filter((category) => !search || category.items.length > 0);
+  const qrDataUrl = qr?.url === liveUrl ? qr.dataUrl : "";
 
   return (
-    <div className="min-h-screen bg-[#0d0f12] text-stone-100 selection:bg-amber-500 selection:text-stone-950 pb-20">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-stone-950/90 backdrop-blur-md px-4 py-3 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <ChefHat className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-white sm:text-xl">
-                  {t("Hotel Admin Control Center")}
-                </h1>
-                <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest text-amber-300">
-                  {t("Manager Portal")}
-                </span>
-              </div>
-              <p className="text-xs text-stone-400">{t("QR Code Management & Kitchen Control")}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <AdminLanguageCurrencySelect
-              locale={locale}
-              language={language}
-              enabled={languageSwitcherEnabled}
-              onChange={setLocale}
-              onToggle={setLanguageSwitcherEnabled}
-              toggleDisabled={isLoadingLanguageSwitcherSetting || isSavingLanguageSwitcherSetting}
-            />
-            {languageSwitcherSettingError && (
-              <p role="alert" className="max-w-48 text-xs text-rose-300">
-                {t(languageSwitcherSettingError)}
-              </p>
-            )}
-            <Link
-              href="/?from=admin"
-              className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-200 hover:bg-white/15 hover:text-white transition"
-            >
-              <ArrowLeft className="h-4 w-4 text-amber-400" /> {t("View Guest Menu")}
-            </Link>
-            <form action={logoutAdmin}>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-stone-300 transition hover:bg-white/10 hover:text-white"
-              >
-                <LogOut className="h-4 w-4" /> {t("Sign out")}
-              </button>
-            </form>
+    <div className="min-h-screen bg-[#0d0f12] pb-20 text-stone-100">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-stone-950/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3"><ChefHat className="h-7 w-7 text-amber-400" /><div><h1 className="text-xl font-bold text-white">{t("Hotel Admin Control Center")}</h1><p className="text-xs text-stone-400">{t("QR Code Management & Kitchen Control")}</p></div></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminLanguageCurrencySelect locale={locale} language={language} enabled={languageSwitcherEnabled} onChange={setLocale} onToggle={setLanguageSwitcherEnabled} toggleDisabled={isLoadingSwitcher || isSavingSwitcher} />
+            {switcherError && <p role="alert" className="text-xs text-rose-300">{t(switcherError)}</p>}
+            <Link href="/?from=admin" className="rounded-xl border border-white/15 px-3 py-2 text-xs">{t("View Guest Menu")}</Link>
+            <form action={logoutAdmin}><button className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs"><LogOut className="h-4 w-4" />{t("Sign out")}</button></form>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-10">
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-8 sm:px-6 lg:px-8">
         <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-300 mb-1">
-                <Sparkles className="h-3 w-3" /> {t("Live Venue QR Code")}
-              </div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
-                {t("Table QR Code Management")}
-              </h2>
-              <p className="text-xs text-stone-400">
-                {t("Single universal QR code for all tables, counters, and guest rooms")}
-              </p>
-            </div>
-
-            <button
-              onClick={() => setIsGeneratorOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-lg shadow-amber-500/20"
-            >
-              <Wand2 className="h-4 w-4" /> {t("Open Sticker Generator")}
-            </button>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="flex flex-col sm:flex-row items-center gap-6 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950 p-6 shadow-2xl backdrop-blur-xl">
-              <div className="rounded-2xl border-4 border-amber-500/40 bg-white p-3 shadow-lg shrink-0">
-                {qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt={t("Universal Menu QR Code")}
-                    className="h-44 w-44 rounded-lg object-contain"
-                  />
-                ) : (
-                  <div className="flex h-44 w-44 items-center justify-center rounded-lg text-xs text-stone-500">
-                    {qrErrorMessage ? t(qrErrorMessage) : t("Creating QR code...")}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 flex-1 text-center sm:text-left">
-                <div>
-                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-1.5 mb-2">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> {t("1 Code For All Tables")}
-                  </span>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-white">
-                    {hotelName}
-                  </h3>
-                  <p className="text-xs text-stone-400 mt-1">
-                    {t("Print and display this QR code on all table tents, room key cards, and bar counters.")}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-2.5 text-xs text-stone-300">
-                  <span className="truncate flex-1 text-amber-300 font-mono text-[11px]">{liveUrl}</span>
-                  <button
-                    onClick={handleCopyLink}
-                    className="flex items-center gap-1 text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg bg-stone-900 border border-white/10"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copied ? t("Copied") : t("Copy")}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => downloadQrDataUrl(qrDataUrl, "Universal_Table_Menu_QR.png")}
-                    disabled={!qrDataUrl}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400 transition disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Download className="h-3.5 w-3.5" /> {t("Download QR")}
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
-                  >
-                    <Printer className="h-3.5 w-3.5" /> {t("Print Sticker")}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-stone-950 p-5 space-y-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                  <Smartphone className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{t("Mobile Test Scan")}</h4>
-                  <p className="text-xs text-stone-400 mt-1">
-                    {t("Scan with your smartphone camera to verify the live guest menu experience.")}
-                  </p>
-                </div>
-                <a
-                  href={liveUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300"
-                >
-                  {t("Open Live Menu")} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-stone-950 p-5 space-y-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  <Utensils className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{t("Active Menu Items")}</h4>
-                  <p className="text-xs text-stone-400 mt-1">{menuSummaryText}</p>
-                </div>
-                <div className="text-xs font-semibold text-emerald-400">
-                  {t("All Systems Operational")}
-                </div>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-amber-300"><CheckCircle2 className="mr-1 inline h-4 w-4" />{t("Live Venue QR Code")}</p><h2 className="text-2xl font-bold">{t("Table QR Code Management")}</h2><p className="text-xs text-stone-400">{t("Single universal QR code for all tables, counters, and guest rooms")}</p></div><button onClick={() => setGeneratorOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 font-bold text-stone-950"><Wand2 className="h-4 w-4" />{t("Open Sticker Generator")}</button></div>
+          <div className="grid gap-5 lg:grid-cols-2"><div className="flex flex-wrap items-center gap-5 rounded-2xl border border-amber-500/30 bg-stone-950 p-5">{qrDataUrl ? <img src={qrDataUrl} alt={t("Universal Menu QR Code")} className="h-44 w-44 rounded bg-white p-2" /> : <div className="flex h-44 w-44 items-center justify-center bg-white text-xs text-stone-600">{qrError ? t(qrError) : t("Creating QR code...")}</div>}<div className="min-w-0 flex-1 space-y-3"><h3 className="font-bold">{UNIVERSAL_MENU_INFO.venueName}</h3><p className="break-all text-xs text-amber-300">{liveUrl}</p><div className="flex gap-2"><button onClick={() => { void navigator.clipboard.writeText(liveUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000); }} className="rounded-lg border border-white/20 px-3 py-2 text-xs">{copied ? <Check className="inline h-4 w-4" /> : <Copy className="inline h-4 w-4" />} {copied ? t("Copied") : t("Copy")}</button><button disabled={!qrDataUrl} onClick={() => downloadQrDataUrl(qrDataUrl, "Universal_Table_Menu_QR.png")} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-2 text-xs text-stone-950 disabled:opacity-50"><Download className="h-4 w-4" />{t("Download QR")}</button><button onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-2 text-xs"><Printer className="h-4 w-4" />{t("Print Sticker")}</button></div></div></div>
+            <div className="grid gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-2"><div><Smartphone className="mb-2 h-6 w-6 text-amber-400" /><h3 className="font-bold">{t("Mobile Test Scan")}</h3><a href={liveUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-amber-300">{t("Open Live Menu")}<ExternalLink className="h-3 w-3" /></a></div><div><Utensils className="mb-2 h-6 w-6 text-emerald-400" /><h3 className="font-bold">{t("Active Menu Items")}</h3><p className="text-xs text-stone-400">{loadingMenu ? t("Loading menu...") : `${categories.reduce((sum, category) => sum + category.items.length, 0)} ${language === "am" ? "ምግቦች" : "dishes"} ${language === "am" ? "በ" : "across"} ${categories.length} ${language === "am" ? "ምድቦች" : "categories"}`}</p></div></div>
           </div>
         </section>
 
-        <section className="space-y-5 border-t border-white/10 pt-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
-                {t("Live guest selections")}
-              </h2>
-              <p className="text-xs text-stone-400">
-                {t("Anonymous food selections update here automatically ({count})").replace("{count}", String(guestSelections.length))}
-              </p>
-            </div>
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-              {t("Refreshes every 5 seconds")}
-            </span>
-          </div>
+        <section className="space-y-4 border-t border-white/10 pt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">{t("Live guest selections")}</h2><p className="text-xs text-stone-400">{t("Anonymous food selections update here automatically ({count})").replace("{count}", String(selections.length))}</p></div><span className="text-xs text-emerald-300">{t("Refreshes every 5 seconds")}</span></div>{selectionError && <p role="alert" className="text-sm text-rose-300">{t(selectionError)}</p>}{loadingSelections ? <p role="status">{t("Loading guest selections...")}</p> : selections.length === 0 ? <p className="rounded-xl border border-white/10 bg-stone-950 p-5 text-sm text-stone-400">{t("No guest selections yet. New selections will appear here.")}</p> : <div className="grid gap-4 md:grid-cols-2">{selections.map((selection) => { const etb = selection.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0); const usd = selection.items.reduce((sum, item) => sum + item.quantity * (item.unitPriceUsd ?? 0), 0); const hasEtb = selection.items.some((item) => item.unitPrice > 0 || item.unitPriceUsd === null); const hasUsd = selection.items.some((item) => item.unitPriceUsd !== null); return <article key={selection.id} className="rounded-xl border border-white/10 bg-stone-950 p-4"><div className="flex justify-between"><div><h3 className="font-semibold">{selection.guestLabel}</h3><time className="text-xs text-stone-500">{new Date(selection.updatedAt).toLocaleString(language === "am" ? "am-ET" : "en-US")}</time></div><button disabled={clearingId === selection.id} onClick={() => void clearSelection(selection.id)} className="rounded border border-white/20 px-3 py-1 text-xs">{clearingId === selection.id ? t("Clearing...") : t("Clear")}</button></div><ul className="mt-3 space-y-2 border-t border-white/10 pt-3">{selection.items.map((item) => <li key={item.itemId} className="flex justify-between gap-2 text-sm"><span>{item.quantity}× {translateMenuItem(item.name, language)} <small className="text-stone-500">{translateMenuCategory(item.categoryName, language)}</small></span><span>{formatMenuPrice(item.quantity * item.unitPrice, item.unitPriceUsd === null ? null : item.quantity * item.unitPriceUsd, currency, language)}</span></li>)}</ul><p className="mt-3 text-right text-sm font-bold text-amber-300">{t("Total")}: {currency === "ETB" ? hasEtb ? formatMenuPrice(etb, hasUsd ? usd : null, currency, language) : getMenuCopy(language, "etbPriceUnavailable") : hasUsd ? formatMenuPrice(etb, usd, currency, language) : getMenuCopy(language, "usdPriceUnavailable")}</p></article>; })}</div>}</section>
 
-          {selectionError && <p role="alert" className="text-sm text-rose-300">{t(selectionError)}</p>}
-
-          {isLoadingSelections ? (
-            <p role="status" className="text-sm text-stone-400">{t("Loading guest selections...")}</p>
-          ) : guestSelections.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-stone-950 p-6 text-sm text-stone-400">
-              <Utensils className="mb-2 h-5 w-5 text-stone-500" />
-              {t("No guest selections yet. New selections will appear here.")}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {guestSelections.map((selection) => {
-                const totalEtb = selection.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-                const totalUsd = selection.items.reduce(
-                  (sum, item) => sum + item.quantity * (item.unitPriceUsd ?? 0),
-                  0
-                );
-                const hasEtbPrice = selection.items.some(
-                  (item) => item.unitPrice > 0 || item.unitPriceUsd === null
-                );
-                const hasUsdPrice = selection.items.some((item) => item.unitPriceUsd !== null);
-                const hasSelectedCurrencyPrice = currency === "ETB" ? hasEtbPrice : hasUsdPrice;
-
-                return (
-                  <article key={selection.id} className="rounded-2xl border border-amber-500/20 bg-stone-950 p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold text-white">{selection.guestLabel}</h3>
-                        <time className="mt-1 block text-xs text-stone-500" dateTime={selection.updatedAt}>
-                          {t("Updated {date}").replace(
-                            "{date}",
-                            new Date(selection.updatedAt).toLocaleString(language === "am" ? "am-ET" : "en-US")
-                          )}
-                        </time>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={clearingSelectionId === selection.id}
-                        onClick={() => void handleClearSelection(selection.id)}
-                        className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-stone-300 hover:bg-white/10 disabled:opacity-50"
-                      >
-                        {clearingSelectionId === selection.id ? t("Clearing...") : t("Clear")}
-                      </button>
-                    </div>
-
-                    <ul className="mt-4 space-y-2 border-t border-white/10 pt-3">
-                      {selection.items.map((item) => {
-                        const hasItemEtbPrice = item.unitPrice > 0 || item.unitPriceUsd === null;
-                        const hasSelectedPrice = currency === "ETB" ? hasItemEtbPrice : item.unitPriceUsd !== null;
-
-                        return (
-                          <li key={item.itemId} className="flex justify-between gap-3 text-sm">
-                            <span className="text-stone-200">
-                              <span className="mr-2 font-bold text-amber-300">{item.quantity}×</span>
-                              {translateMenuItem(item.name, language)}
-                              <span className="ml-2 text-xs text-stone-500">
-                                {translateMenuCategory(item.categoryName, language)}
-                              </span>
-                            </span>
-                            <span className="shrink-0 text-stone-400">
-                              {hasSelectedPrice
-                                ? formatMenuPrice(
-                                    item.quantity * item.unitPrice,
-                                    item.unitPriceUsd === null ? null : item.quantity * item.unitPriceUsd,
-                                    currency,
-                                    language
-                                  )
-                                : getMenuCopy(language, "etbPriceUnavailable")}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <p className="mt-3 border-t border-white/10 pt-3 text-right text-sm font-bold text-amber-300">
-                      {t("Total")}: {hasSelectedCurrencyPrice
-                        ? formatMenuPrice(totalEtb, hasUsdPrice ? totalUsd : null, currency, language)
-                        : getMenuCopy(language, currency === "USD" ? "usdPriceUnavailable" : "etbPriceUnavailable")}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+        <section className="space-y-5 border-t border-white/10 pt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">{t("Kitchen Inventory & Availability")}</h2><p className="text-xs text-stone-400">{t("Toggle dishes in stock or mark items sold out (86) in real-time")}</p></div><div className="flex flex-wrap items-center gap-2"><button onClick={() => { setEditingId(null); setItemForm(emptyItem); setShowDishForm((shown) => !shown); }} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-stone-950"><Plus className="h-4 w-4" />{t("Add dish")}</button><button onClick={() => setShowCategoryForm((shown) => !shown)} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-stone-950"><Plus className="h-4 w-4" />{t("Add category")}</button><div className="relative"><Search className="absolute left-2 top-2 h-4 w-4 text-stone-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search dishes...")} className="w-44 rounded-lg border border-white/15 bg-stone-900 py-2 pl-8 pr-2 text-xs" /></div><select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="rounded-lg border border-white/15 bg-stone-900 px-2 py-2 text-xs"><option value="all">{t("All Categories")}</option>{categoryOptions.map((name) => <option key={name} value={name}>{translateMenuCategory(name, language)}</option>)}</select></div></div>
+          {showCategoryForm && <form onSubmit={addCategory} className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-stone-950 p-4"><label className="text-xs">{t("Category name")}<input required maxLength={80} value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="mt-1 block rounded-lg border border-white/15 bg-stone-900 px-3 py-2" /></label><button disabled={savingCategory} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950">{savingCategory ? t("Adding...") : t("Add category")}</button><button type="button" onClick={() => setShowCategoryForm(false)} className="rounded-lg border border-white/20 px-4 py-2 text-sm">{t("Cancel")}</button>{categoryMessage && <p role="status" className={categoryMessage.ok ? "text-emerald-300" : "text-rose-300"}>{categoryMessage.text}</p>}</form>}
+          {categories.length > 0 && <div className="rounded-xl border border-white/10 bg-stone-950 p-4"><h3 className="mb-3 text-sm font-bold">{t("Manage categories")}</h3><ul className="flex flex-wrap gap-2">{categories.map((category) => <li key={category.id} className="flex items-center gap-2 rounded-lg bg-stone-900 px-3 py-2 text-xs">{translateMenuCategory(category.name, language)}<button disabled={deletingCategoryId !== null} onClick={() => void deleteCategory(category.id)} className="text-rose-300">{deletingCategoryId === category.id ? t("Deleting...") : t("Delete")}</button></li>)}</ul>{categoryMessage && <p role="status" className="mt-2 text-sm">{categoryMessage.text}</p>}</div>}
+          {showDishForm && <form onSubmit={saveDish} className="grid gap-3 rounded-xl border border-white/10 bg-stone-950 p-4 sm:grid-cols-2"><label className="text-xs">{t("Dish name")}<input required value={itemForm.name} onChange={(event) => setItemForm({ ...itemForm, name: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2" /></label><label className="text-xs">{t("Price (ETB)")}<input type="number" min="0" step="0.01" value={itemForm.price} onChange={(event) => setItemForm({ ...itemForm, price: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2" /></label><label className="text-xs">{t("Price (USD)")}<input type="number" min="0" step="0.01" value={itemForm.priceUsd} onChange={(event) => setItemForm({ ...itemForm, priceUsd: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2" /></label><label className="text-xs">{t("Category")}<select required value={itemForm.category} onChange={(event) => setItemForm({ ...itemForm, category: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2"><option value="">{t("Choose a category")}</option>{categoryOptions.map((name) => <option key={name} value={name}>{translateMenuCategory(name, language)}</option>)}</select></label><label className="text-xs">{t("Preparation time (minutes)")}<input type="number" min="0" step="1" value={itemForm.prepTimeMins} onChange={(event) => setItemForm({ ...itemForm, prepTimeMins: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2" /></label><label className="text-xs sm:col-span-2">{t("Description")}<textarea required={requiresMenuItemDescription(itemForm.category)} rows={3} value={itemForm.description} onChange={(event) => setItemForm({ ...itemForm, description: event.target.value })} className="mt-1 block w-full rounded-lg bg-stone-900 p-2" /></label><label className="text-xs sm:col-span-2">{t("Dish photo (optional)")}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} className="mt-1 block w-full" /></label><div className="flex items-center gap-3 sm:col-span-2"><button disabled={savingDish} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950">{savingDish ? t("Saving") : editingId ? t("Update dish") : t("Save dish")}</button><button type="button" onClick={() => { setShowDishForm(false); setEditingId(null); setItemForm(emptyItem); }} className="rounded-lg border border-white/20 px-4 py-2 text-sm">{t("Cancel")}</button>{formMessage && <p role="status" className="text-sm">{formMessage}</p>}</div></form>}
+          {!showDishForm && formMessage && <p role="status" className="text-sm text-emerald-300">{formMessage}</p>}
+          {loadingMenu ? <p role="status">{t("Loading menu items...")}</p> : visibleCategories.length === 0 ? <p className="text-sm text-stone-400">{t("No menu items found.")}</p> : <div className="space-y-8">{visibleCategories.map((category) => <section key={category.id} className="space-y-3"><h3 className="border-b border-amber-500/30 pb-2 text-xl font-bold">{translateMenuCategory(category.name, language)} <span className="text-sm text-stone-400">({category.items.length})</span></h3>{category.items.length === 0 ? <p className="text-sm text-stone-500">{t("No dishes in this category.")}</p> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{category.items.map((item) => <article key={item.id} className={`flex flex-col justify-between rounded-2xl border p-4 ${item.isAvailable ? "border-white/10 bg-stone-950" : "border-rose-500/30 bg-rose-950/20"}`}><div><div className="flex justify-between gap-3"><div className="relative h-14 w-14 overflow-hidden rounded-lg bg-stone-900">{item.image ? <Image src={item.image} alt={item.name} fill className="object-cover" /> : <span className="text-xs">{item.name}</span>}</div><div className="text-right text-sm font-bold text-amber-300">{currency === "ETB" && item.price <= 0 && item.priceUsd !== null ? getMenuCopy(language, "etbPriceUnavailable") : formatMenuPrice(item.price, item.priceUsd, currency, language)}<p className="text-xs text-stone-400">{item.prepTimeMinutes} {t("mins prep")}</p></div></div><h4 className="mt-3 font-bold">{item.name}</h4>{item.description && <p className="mt-1 line-clamp-2 text-xs text-stone-400">{item.description}</p>}<div className="mt-2 flex flex-wrap gap-1">{item.dietary.map((tag: string) => <span key={tag} className="rounded bg-stone-900 px-2 py-1 text-[9px]">{translateDietaryTag(tag, language)}</span>)}</div></div><div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3"><span className={`inline-flex items-center gap-1 text-xs ${item.isAvailable ? "text-emerald-400" : "text-rose-400"}`}>{item.isAvailable ? <><CheckCircle className="h-4 w-4" />{t("In Stock")}</> : <><XCircle className="h-4 w-4" />{t("86 Sold Out")}</>}</span><div className="flex flex-wrap gap-2"><button onClick={() => editDish(item)} className="rounded-lg border border-white/20 px-2 py-1 text-xs">{t("Edit")}</button><button onClick={() => void deleteDish(item.id)} className="rounded-lg border border-rose-500/40 px-2 py-1 text-xs text-rose-300">{t("Delete")}</button><button disabled={availabilitySavingId === item.id} onClick={() => void toggleAvailability(item.id)} className="rounded-lg border border-white/20 px-2 py-1 text-xs">{availabilitySavingId === item.id ? t("Updating...") : item.isAvailable ? t("Mark Sold Out (86)") : t("Restock Item")}</button></div></div></article>)}</div>}</section>)}</div>}
         </section>
 
-        <section className="space-y-6">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
-                {t("Kitchen Inventory & Availability")}
-              </h2>
-              <p className="text-xs text-stone-400">
-                {t("Toggle dishes in stock or mark items sold out (86) in real-time")}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setFormMessage("");
-                  setShowAddForm((visible) => !visible);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
-              >
-                <Plus className="h-4 w-4" /> {t("Add dish")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryMessage(null);
-                  setShowAddCategoryForm((visible) => !visible);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
-              >
-                <Plus className="h-4 w-4" /> {t("Add category")}
-              </button>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("Search dishes...")}
-                  className="w-48 rounded-xl border border-white/15 bg-stone-900 pl-9 pr-3 py-1.5 text-xs text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="rounded-xl border border-white/15 bg-stone-900 px-3 py-1.5 text-xs text-stone-300 focus:border-amber-500 focus:outline-none"
-              >
-                <option value="all">{t("All Categories")}</option>
-                {menuCategoryOptions.map((categoryName) => (
-                  <option key={categoryName} value={categoryName}>
-                    {translateMenuCategory(categoryName, language)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {showAddCategoryForm && (
-            <form
-              onSubmit={handleAddCategory}
-              className="grid max-w-xl gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-[minmax(0,24rem)_auto]"
-            >
-              <label className="max-w-sm text-xs font-semibold text-stone-300">
-                {t("Category name")}
-                <input
-                  required
-                  maxLength={80}
-                  autoFocus
-                  value={newCategoryName}
-                  onChange={(event) => setNewCategoryName(event.target.value)}
-                  placeholder={language === "am" ? "ለምሳሌ ትኩስ መጠጦች" : "e.g. Hot Drinks"}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-amber-500 focus:outline-none"
-                />
-              </label>
-              <div className="flex items-end gap-2">
-                <button
-                  type="submit"
-                  disabled={isSavingCategory || !newCategoryName.trim()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 hover:bg-amber-400 disabled:opacity-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  {isSavingCategory ? t("Adding...") : t("Add category")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddCategoryForm(false);
-                    setNewCategoryName("");
-                    setCategoryMessage(null);
-                  }}
-                  disabled={isSavingCategory}
-                  className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-stone-200 hover:bg-white/10 disabled:opacity-50"
-                >
-                  {t("Cancel")}
-                </button>
-              </div>
-              {categoryMessage && (
-                <p
-                  role="status"
-                  className={`text-sm sm:col-span-2 ${categoryMessage.ok ? "text-emerald-300" : "text-rose-300"}`}
-                >
-                  {categoryMessage.text}
-                </p>
-              )}
-            </form>
-          )}
-
-          <section className="space-y-4 rounded-2xl border border-white/10 bg-stone-950 p-5">
-            <div>
-              <h3 className="text-sm font-bold text-white">{t("Manage categories")}</h3>
-              <p className="mt-1 text-xs text-stone-400">
-                {t("Deleting a category also permanently deletes all dishes in it.")}
-              </p>
-            </div>
-            {!showAddCategoryForm && categoryMessage && (
-              <p role="status" className={`text-sm ${categoryMessage.ok ? "text-emerald-300" : "text-rose-300"}`}>
-                {categoryMessage.text}
-              </p>
-            )}
-            {dbCategories.length > 0 && (
-              <ul className="flex flex-wrap gap-2">
-                {dbCategories.map((category) => (
-                  <li
-                    key={category.id}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-stone-900 px-3 py-2 text-sm text-stone-200"
-                  >
-                    <span>{translateMenuCategory(category.name, language)}</span>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteCategory(category.id)}
-                      disabled={isSavingCategory || deletingCategoryId !== null}
-                      aria-label={`${t("Delete")} ${translateMenuCategory(category.name, language)} ${language === "am" ? "ምድብ" : "category"}`}
-                      className="font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50"
-                    >
-                      {deletingCategoryId === category.id ? t("Deleting...") : t("Delete")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {showAddForm && (
-            <form onSubmit={handleSaveDish} className="grid gap-4 rounded-2xl border border-white/10 bg-stone-950 p-5 sm:grid-cols-2">
-              <label className="text-xs font-semibold text-stone-300">
-                {t("Dish name")}
-                <input
-                  required
-                  value={newItem.name}
-                  onChange={(event) => setNewItem({ ...newItem, name: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder={language === "am" ? "ለምሳሌ የተጠበሰ ሳልሞን" : "e.g. Grilled salmon"}
-                />
-              </label>
-              <label className="text-xs font-semibold text-stone-300">
-                {t("Price (ETB)")}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newItem.price}
-                  onChange={(event) => setNewItem({ ...newItem, price: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="0.00"
-                />
-                <span className="mt-1 block font-normal text-stone-500">
-                  {t("ETB can be left blank when a USD price is provided.")}
-                </span>
-              </label>
-              <label className="text-xs font-semibold text-stone-300">
-                {t("Price (USD)")}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newItem.priceUsd}
-                  onChange={(event) => setNewItem({ ...newItem, priceUsd: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder={t("Optional")}
-                />
-                <span className="mt-1 block font-normal text-stone-500">
-                  {t("Enter at least one price in ETB or USD.")}
-                </span>
-              </label>
-              <label className="text-xs font-semibold text-stone-300">
-                {t("Category")}
-                <select
-                  required
-                  value={newItem.category}
-                  onChange={(event) => setNewItem({ ...newItem, category: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                >
-                  <option value="" disabled>
-                    {t("Choose a category")}
-                  </option>
-                  {menuCategoryOptions.map((categoryName) => (
-                    <option key={categoryName} value={categoryName}>
-                      {translateMenuCategory(categoryName, language)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs font-semibold text-stone-300">
-                {t("Preparation time (minutes)")}
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={newItem.prepTimeMins}
-                  onChange={(event) => setNewItem({ ...newItem, prepTimeMins: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                />
-              </label>
-              <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
-                {t("Description")} ({requiresMenuItemDescription(newItem.category) ? t("required") : t("optional")})
-                <textarea
-                  required={requiresMenuItemDescription(newItem.category)}
-                  rows={3}
-                  value={newItem.description}
-                  onChange={(event) => setNewItem({ ...newItem, description: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
-                  placeholder={
-                    requiresMenuItemDescription(newItem.category)
-                      ? t("Describe the dish and its ingredients")
-                      : t("Describe the drink (optional)")
-                  }
-                />
-              </label>
-              <label className="text-xs font-semibold text-stone-300 sm:col-span-2">
-                {t("Dish photo (optional)")}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(event) => setSelectedPhoto(event.target.files?.[0] ?? null)}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-stone-900 px-3 py-2 text-sm text-white file:mr-3 file:rounded-lg file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-stone-950"
-                />
-                <span className="mt-1 block font-normal text-stone-500">
-                  {selectedPhoto
-                    ? `${selectedPhoto.name} ${t("selected")}`
-                    : editingItemId
-                      ? t("Leave empty to keep the current photo. JPG, PNG, WebP, or GIF; maximum size: 5 MB.")
-                      : t("You can add a photo now or leave this blank. JPG, PNG, WebP, or GIF; maximum size: 5 MB.")}
-                </span>
-              </label>
-              <div className="flex items-center gap-3 sm:col-span-2">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-stone-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? `${t("Saving")}...` : editingItemId ? t("Update dish") : t("Save dish")}
-                </button>
-                {editingItemId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingItemId(null);
-                      setSelectedPhoto(null);
-                      setNewItem({ name: "", description: "", category: "", price: "", priceUsd: "", prepTimeMins: "15" });
-                      setFormMessage("");
-                    }}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-stone-200"
-                  >
-                    {t("Cancel")}
-                  </button>
-                )}
-                {formMessage && <p role="status" className="text-sm text-stone-300">{formMessage}</p>}
-              </div>
-            </form>
-          )}
-
-          {!showAddForm && formMessage && <p role="status" className="text-sm text-emerald-300">{formMessage}</p>}
-
-          {isLoadingMenu ? (
-            <p role="status" className="text-sm text-stone-400">{t("Loading menu items...")}</p>
-          ) : visibleCategories.length === 0 ? (
-            <p className="text-sm text-stone-400">{t("No menu items found.")}</p>
-          ) : (
-            <div className="space-y-8">
-              {visibleCategories.map((category) => (
-                <section key={category.id} className="space-y-4">
-                  <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 pb-2">
-                    <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-white">
-                      {translateMenuCategory(category.name, language)}
-                    </h3>
-                    <span className="rounded-full border border-white/10 bg-stone-900 px-2.5 py-1 text-[11px] font-semibold text-stone-400">
-                      {category.items.length}
-                    </span>
-                  </div>
-
-                  {category.items.length === 0 ? (
-                    <p className="text-sm text-stone-500">{t("No dishes in this category.")}</p>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {category.items.map((item) => {
-                        const isAvailable = item.isAvailable;
-                        return (
-                          <div
-                            key={item.id}
-                            className={`flex flex-col justify-between rounded-3xl border p-5 transition ${
-                              isAvailable
-                                ? "border-white/10 bg-stone-950"
-                                : "border-rose-500/30 bg-rose-950/20"
-                            }`}
-                          >
-                            <div className="space-y-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="relative h-14 w-14 overflow-hidden rounded-xl bg-stone-900 shrink-0">
-                                  {item.image ? (
-                                    <Image src={item.image} alt={item.name} fill className="object-cover" />
-                                  ) : (
-                                    <div className="line-clamp-3 flex h-full items-center justify-center px-1 text-center text-[8px] text-stone-400">
-                                      {item.name}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-sm font-extrabold text-amber-300">
-                                    <p>
-                                      {currency === "ETB" && item.price <= 0 && item.priceUsd !== null
-                                        ? getMenuCopy(language, "etbPriceUnavailable")
-                                        : formatMenuPrice(item.price, item.priceUsd, currency, language)}
-                                    </p>
-                                  </div>
-                                  <div className="text-[10px] text-stone-400 mt-0.5">
-                                    {item.prepTimeMinutes} {t("mins prep")}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <h4 className="font-bold text-white text-base">{item.name}</h4>
-                                {item.description && (
-                                  <p className="text-xs text-stone-400 mt-1 line-clamp-2">{item.description}</p>
-                                )}
-                              </div>
-
-                              <div className="flex flex-wrap gap-1">
-                                {item.dietary.map((tag: string) => (
-                                  <span
-                                    key={tag}
-                                    className="rounded bg-stone-900 border border-white/10 px-1.5 py-0.5 text-[9px] uppercase text-stone-300"
-                                  >
-                                    {translateDietaryTag(tag, language)}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                              <span className={`text-xs font-semibold flex items-center gap-1.5 ${isAvailable ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isAvailable ? (
-                                  <>
-                                    <CheckCircle className="h-4 w-4" /> {t("In Stock")}
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="h-4 w-4" /> {t("86 Sold Out")}
-                                  </>
-                                )}
-                              </span>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => startEditingItem(item)}
-                                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[10px] font-bold text-stone-200 hover:bg-white/10"
-                                >
-                                  {t("Edit")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void handleDeleteDish(item.id)}
-                                  className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-300 hover:bg-rose-500 hover:text-white"
-                                >
-                                  {t("Delete")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleItemAvailability(item.id)}
-                                  disabled={availabilitySavingId === item.id}
-                                  className={`rounded-xl px-4 py-2 text-xs font-bold transition border ${
-                                    isAvailable
-                                      ? "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500 hover:text-white"
-                                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-stone-950"
-                                  }`}
-                                >
-                                  {availabilitySavingId === item.id
-                                    ? t("Updating...")
-                                    : isAvailable
-                                      ? t("Mark Sold Out (86)")
-                                      : t("Restock Item")}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4 border-t border-white/10 pt-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
-                {t("Guest comments")}
-              </h2>
-              <p className="text-xs text-stone-400">
-                {t("Guest ratings and feedback ({count})").replace("{count}", String(feedbackItems.length))}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-stone-200 hover:bg-white/10"
-            >
-              <RefreshCw className="h-4 w-4" /> {t("Refresh")}
-            </button>
-          </div>
-
-          {feedbackMessage && <p role="status" className="text-sm text-stone-300">{feedbackMessage}</p>}
-
-          {feedbackItems.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-stone-950 p-6 text-sm text-stone-400">
-              <MessageSquare className="mb-2 h-5 w-5 text-stone-500" />
-              {t("No guest feedback yet.")}
-            </div>
-          ) : (
-            <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-stone-950 px-4">
-              {feedbackItems.map((feedback) => (
-                <article key={feedback.id} className="flex items-start justify-between gap-4 py-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h3 className="text-sm font-semibold text-white">{feedback.name || t("Guest")}</h3>
-                      {feedback.rating !== null && (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300"
-                          aria-label={`${feedback.rating} ${t("out of 5 stars")}`}
-                        >
-                          <Star className="h-3.5 w-3.5" fill="currentColor" />
-                          {feedback.rating}/5
-                        </span>
-                      )}
-                      <time className="text-xs text-stone-500" dateTime={feedback.createdAt}>
-                        {feedback.createdAt.slice(0, 10)}
-                      </time>
-                    </div>
-                    {feedback.message && (
-                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-300">
-                        {feedback.message}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={t("Delete guest comment")}
-                    title={t("Delete comment")}
-                    disabled={deletingFeedbackId === feedback.id}
-                    onClick={() => void handleDeleteFeedback(feedback.id)}
-                    className="shrink-0 rounded-lg p-2 text-stone-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <QRGeneratorModal isOpen={isGeneratorOpen} onClose={() => setIsGeneratorOpen(false)} language={language} />
+        <section className="space-y-4 border-t border-white/10 pt-8"><div className="flex flex-wrap items-center justify-between"><div><h2 className="text-2xl font-bold">{t("Guest comments")}</h2><p className="text-xs text-stone-400">{t("Guest ratings and feedback ({count})").replace("{count}", String(feedbackItems.length))}</p></div><button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs"><RefreshCw className="h-4 w-4" />{t("Refresh")}</button></div>{feedbackMessage && <p role="status" className="text-sm">{feedbackMessage}</p>}{feedbackItems.length === 0 ? <p className="rounded-xl border border-white/10 bg-stone-950 p-5 text-sm text-stone-400"><MessageSquare className="mr-2 inline h-4 w-4" />{t("No guest feedback yet.")}</p> : <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-stone-950 px-4">{feedbackItems.map((feedback) => <article key={feedback.id} className="flex justify-between gap-4 py-4"><div><div className="flex flex-wrap items-center gap-3"><h3 className="text-sm font-semibold">{feedback.name || t("Guest")}</h3>{feedback.rating !== null && <span className="inline-flex items-center gap-1 text-xs text-amber-300"><Star className="h-3.5 w-3.5" fill="currentColor" />{feedback.rating}/5</span>}<time className="text-xs text-stone-500">{feedback.createdAt.slice(0, 10)}</time></div><p className="mt-2 whitespace-pre-wrap text-sm text-stone-300">{feedback.message}</p></div><button aria-label={t("Delete guest comment")} disabled={deletingFeedbackId === feedback.id} onClick={() => void removeFeedback(feedback.id)} className="h-fit rounded p-2 text-stone-400 hover:text-rose-300"><Trash2 className="h-4 w-4" /></button></article>)}</div>}</section>
+      </main>
+      <QRGeneratorModal isOpen={generatorOpen} onClose={() => setGeneratorOpen(false)} language={language} />
     </div>
   );
 }
