@@ -1,4 +1,3 @@
-
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -10,10 +9,31 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { requiresMenuItemDescription } from "@/lib/menu-validation";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const noCacheHeaders = { "Cache-Control": "no-store" };
+
+async function ensureMenuSettings() {
+  return prisma.menuSettings.upsert({
+    where: { id: "global" },
+    update: {},
+    create: {
+      id: "global",
+      languageSwitcherEnabled: false,
+      newestDishesFirst: true,
+    },
+    select: {
+      languageSwitcherEnabled: true,
+      newestDishesFirst: true,
+    },
+  });
+}
 
 export async function GET() {
   try {
     const isAdmin = await isAdminAuthenticated();
+    const menuSettings = await ensureMenuSettings();
+
     const hotel = await prisma.hotel.findUnique({
       where: { slug: DEFAULT_HOTEL_SLUG },
       select: {
@@ -21,7 +41,9 @@ export async function GET() {
           include: {
             items: {
               where: isAdmin ? undefined : { isAvailable: true },
-              orderBy: { displayOrder: "asc" },
+              orderBy: menuSettings.newestDishesFirst
+                ? [{ createdAt: "desc" }, { displayOrder: "asc" }]
+                : [{ displayOrder: "asc" }, { createdAt: "desc" }],
             },
           },
           orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
@@ -29,12 +51,12 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(hotel?.categories ?? []);
+    return NextResponse.json(hotel?.categories ?? [], { headers: noCacheHeaders });
   } catch (error) {
     console.error("Failed to load menu:", error);
     return NextResponse.json(
       { error: "Failed to load menu" },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders },
     );
   }
 }
@@ -42,8 +64,6 @@ export async function GET() {
 const MAX_PHOTO_DIMENSION = 1200;
 const PHOTO_QUALITY = 80;
 
-// Resize and re-encode uploads so guests download small, consistent images.
-// Also applies EXIF rotation (phone photos) and strips metadata such as GPS location.
 async function optimizePhoto(input: Buffer) {
   try {
     return await sharp(input, { failOn: "error" })
@@ -211,38 +231,23 @@ export async function POST(request: Request) {
     }
 
     if (!name || !categoryName) {
-      return NextResponse.json(
-        { error: "Name and category are required." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name and category are required." }, { status: 400 });
     }
 
     if (!description && requiresMenuItemDescription(categoryName)) {
-      return NextResponse.json(
-        { error: "A description is required for food and starter items." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "A description is required for food and starter items." }, { status: 400 });
     }
 
     if (name.length > 120 || description.length > 2000 || categoryName.length > 80) {
-      return NextResponse.json(
-        { error: "Name, description, or category is too long." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name, description, or category is too long." }, { status: 400 });
     }
 
     if (price === null && priceUsd === null) {
-      return NextResponse.json(
-        { error: "Enter a price in ETB or USD." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Enter a price in ETB or USD." }, { status: 400 });
     }
 
     if (price !== null && (!Number.isFinite(price) || price < 0 || price >= 100000000)) {
-      return NextResponse.json(
-        { error: "Enter a valid ETB price." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Enter a valid ETB price." }, { status: 400 });
     }
 
     if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd >= 100000000)) {
@@ -250,20 +255,11 @@ export async function POST(request: Request) {
     }
 
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
-      return NextResponse.json(
-        { error: "Preparation time must be a whole number of 0 or more." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Preparation time must be a whole number of 0 or more." }, { status: 400 });
     }
 
-    if (
-      dietaryTags.length > 20 ||
-      dietaryTags.some((tag) => tag.length > 40)
-    ) {
-      return NextResponse.json(
-        { error: "Use no more than 20 dietary tags, each 40 characters or fewer." },
-        { status: 400 }
-      );
+    if (dietaryTags.length > 20 || dietaryTags.some((tag) => tag.length > 40)) {
+      return NextResponse.json({ error: "Use no more than 20 dietary tags, each 40 characters or fewer." }, { status: 400 });
     }
 
     if (photo) {
@@ -276,13 +272,12 @@ export async function POST(request: Request) {
       } catch (error) {
         return NextResponse.json(
           { error: error instanceof Error ? error.message : "Could not save the menu item." },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     const hotel = await getDefaultHotel();
-
     const category = await ensureCategory(hotel.id, categoryName);
 
     const item = await prisma.menuItem.create({
@@ -303,10 +298,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (uploadedPhotoUrl) await removeUploadedPhoto(uploadedPhotoUrl);
     console.error("Failed to create menu item:", error);
-    return NextResponse.json(
-      { error: "Could not save the menu item." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Could not save the menu item." }, { status: 500 });
   }
 }
 
@@ -326,13 +318,9 @@ export async function PUT(request: Request) {
     const name = String(formData?.get("name") ?? body?.name ?? "").trim();
     const description = String(formData?.get("description") ?? body?.description ?? "").trim();
     const categoryName = String(formData?.get("category") ?? body?.category ?? "").trim();
-    const hasPrice = formData
-      ? formData.has("price")
-      : Object.prototype.hasOwnProperty.call(body, "price");
+    const hasPrice = formData ? formData.has("price") : Object.prototype.hasOwnProperty.call(body, "price");
     const rawPrice = formData ? formData.get("price") : body?.price;
-    const hasPriceUsd = formData
-      ? formData.has("priceUsd")
-      : Object.prototype.hasOwnProperty.call(body, "priceUsd");
+    const hasPriceUsd = formData ? formData.has("priceUsd") : Object.prototype.hasOwnProperty.call(body, "priceUsd");
     const rawPriceUsd = formData ? formData.get("priceUsd") : body?.priceUsd;
     const rawPrepTimeMins = formData?.get("prepTimeMins") ?? body?.prepTimeMins;
     const photoEntry = formData?.get("photo");
@@ -352,56 +340,45 @@ export async function PUT(request: Request) {
     if (!existingItem) {
       return NextResponse.json({ error: "Menu item not found." }, { status: 404 });
     }
+
     const existingCategory = await prisma.category.findUnique({
       where: { id: existingItem.categoryId },
       select: { name: true },
     });
     const effectiveCategoryName = categoryName || existingCategory?.name || "General";
 
-    const etbPriceProvided = hasPrice
-      ? rawPrice !== null && rawPrice !== ""
-      : Number(existingItem.price) > 0;
-    const price = hasPrice
-      ? rawPrice === null || rawPrice === "" ? null : Number(rawPrice)
-      : Number(existingItem.price);
+    const etbPriceProvided = hasPrice ? rawPrice !== null && rawPrice !== "" : Number(existingItem.price) > 0;
+    const price = hasPrice ? (rawPrice === null || rawPrice === "" ? null : Number(rawPrice)) : Number(existingItem.price);
     const prepTimeMins = rawPrepTimeMins === undefined || rawPrepTimeMins === null || rawPrepTimeMins === ""
       ? existingItem.prepTimeMins
       : Number(rawPrepTimeMins);
+
     if (price !== null && (!Number.isFinite(price) || price < 0 || price >= 100000000)) {
       return NextResponse.json({ error: "Enter a valid ETB price." }, { status: 400 });
     }
+
     let priceUsd = existingItem.priceUsd === null ? null : Number(existingItem.priceUsd);
     if (hasPriceUsd) {
-      priceUsd = rawPriceUsd === null || rawPriceUsd === ""
-        ? null
-        : Number(rawPriceUsd);
+      priceUsd = rawPriceUsd === null || rawPriceUsd === "" ? null : Number(rawPriceUsd);
       if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd >= 100000000)) {
         return NextResponse.json({ error: "Enter a valid USD price." }, { status: 400 });
       }
     }
+
     if ((hasPrice || hasPriceUsd) && !etbPriceProvided && priceUsd === null) {
-      return NextResponse.json(
-        { error: "Enter a price in ETB or USD." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Enter a price in ETB or USD." }, { status: 400 });
     }
+
     if (!Number.isInteger(prepTimeMins) || prepTimeMins < 0) {
-      return NextResponse.json(
-        { error: "Preparation time must be a whole number of 0 or more." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Preparation time must be a whole number of 0 or more." }, { status: 400 });
     }
+
     if (!description && requiresMenuItemDescription(effectiveCategoryName)) {
-      return NextResponse.json(
-        { error: "A description is required for food and starter items." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "A description is required for food and starter items." }, { status: 400 });
     }
+
     if (name.length > 120 || description.length > 2000 || categoryName.length > 80) {
-      return NextResponse.json(
-        { error: "Name, description, or category is too long." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name, description, or category is too long." }, { status: 400 });
     }
 
     let imageUrl = existingItem.imageUrl;
@@ -415,13 +392,12 @@ export async function PUT(request: Request) {
       } catch (error) {
         return NextResponse.json(
           { error: error instanceof Error ? error.message : "Could not update the menu item photo." },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     const hotel = await getDefaultHotel();
-
     const category = await ensureCategory(hotel.id, effectiveCategoryName);
 
     const item = await prisma.menuItem.update({
